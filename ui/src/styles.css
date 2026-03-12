@@ -1604,6 +1604,177 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════
+   STATEMENT SELECT / DELETE
+   ═══════════════════════════════════════════════════ */
+
+/* Bulk action bar (appears when items selected) */
+.bulkActionBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(248,113,113,.08);
+  border: 1px solid rgba(248,113,113,.25);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.bulkCount {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f87171;
+  flex: 1;
+}
+.bulkDeleteBtn {
+  background: rgba(248,113,113,.15);
+  border: 1px solid rgba(248,113,113,.35);
+  color: #f87171;
+  border-radius: 7px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bulkDeleteBtn:hover:not(:disabled) { background: rgba(248,113,113,.25); }
+.bulkDeleteBtn:disabled { opacity: 0.5; cursor: default; }
+.bulkCancelBtn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.bulkCancelBtn:hover { background: var(--surface3); }
+
+/* Per-card select row */
+.stmtSelectRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 14px 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.stmtCard:hover .stmtSelectRow,
+.stmtCardSelected .stmtSelectRow {
+  opacity: 1;
+}
+.stmtCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.stmtCheckbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.stmtCheckboxText {
+  font-size: 0.72rem;
+  color: var(--text3);
+}
+.stmtDeleteBtn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text3);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.6;
+}
+.stmtDeleteBtn:hover:not(:disabled) {
+  background: rgba(248,113,113,.12);
+  border-color: rgba(248,113,113,.3);
+  color: #f87171;
+}
+.stmtDeleteBtn:disabled { opacity: 0.4; cursor: default; }
+
+/* Selected card highlight */
+.stmtCardSelected {
+  border-color: rgba(248,113,113,.35) !important;
+  background: rgba(248,113,113,.04);
+}
+
+/* ── Delete confirm dialog ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  backdrop-filter: blur(2px);
+}
+.confirmDialog {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.confirmDialogIcon { font-size: 2.2rem; margin-bottom: 10px; }
+.confirmDialogTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.confirmDialogBody {
+  font-size: 0.88rem;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.confirmDialogNote {
+  font-size: 0.78rem;
+  color: var(--text3);
+}
+.confirmDialogActions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.confirmBtnCancel {
+  flex: 1;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.confirmBtnCancel:hover { background: var(--surface2); }
+.confirmBtnDelete {
+  flex: 1;
+  background: rgba(248,113,113,.15);
+  border: 1px solid rgba(248,113,113,.35);
+  color: #f87171;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.confirmBtnDelete:hover:not(:disabled) { background: rgba(248,113,113,.25); }
+.confirmBtnDelete:disabled { opacity: 0.5; cursor: default; }
+
+/* ═══════════════════════════════════════════════════
    LOGS PAGE
    ═══════════════════════════════════════════════════ */
 

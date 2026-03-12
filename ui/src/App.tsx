@@ -17,6 +17,8 @@ import {
   setAutoSync,
   triggerMailSync,
   getActivityLog,
+  deleteStatement,
+  deleteStatementsBulk,
   type AutoSyncSettings,
   type LlmSettings,
   type HealthResponse,
@@ -104,6 +106,9 @@ export function App() {
   const [activityFilter, setActivityFilter] = useState<"all" | "mail_sync" | "document_parse">("all");
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [activityRefreshTick, setActivityRefreshTick] = useState(0);
+  const [selectedStmtIds, setSelectedStmtIds] = useState<Set<number>>(new Set());
+  const [isDeletingStmts, setIsDeletingStmts] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ ids: number[]; label: string } | null>(null);
 
   function nextRequestId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -156,6 +161,33 @@ export function App() {
       setErrorMessage(message);
       setLoadState("error");
       pushLog("error", "system", `Yenileme başarısız: ${message}`, requestId);
+    }
+  }
+
+  async function confirmDeleteStatements(ids: number[], label: string) {
+    setDeleteConfirm({ ids, label });
+  }
+
+  async function executeDeleteStatements() {
+    if (!deleteConfirm) return;
+    setIsDeletingStmts(true);
+    const { ids } = deleteConfirm;
+    setDeleteConfirm(null);
+    try {
+      if (ids.length === 1) {
+        await deleteStatement(ids[0]);
+      } else {
+        await deleteStatementsBulk(ids);
+      }
+      setStatements((prev) => prev.filter((s) => !ids.includes(s.id)));
+      setSelectedStmtIds(new Set());
+      pushLog("info", "parser", `${ids.length} ekstre silindi.`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Silme başarısız";
+      setErrorMessage(msg);
+      pushLog("error", "parser", msg);
+    } finally {
+      setIsDeletingStmts(false);
     }
   }
 
@@ -1034,6 +1066,29 @@ export function App() {
                 )}
               </div>
 
+              {/* Bulk selection toolbar */}
+              {selectedStmtIds.size > 0 && (
+                <div className="bulkActionBar">
+                  <span className="bulkCount">{selectedStmtIds.size} ekstre seçildi</span>
+                  <button
+                    className="bulkDeleteBtn"
+                    disabled={isDeletingStmts}
+                    onClick={() => confirmDeleteStatements(
+                      Array.from(selectedStmtIds),
+                      `${selectedStmtIds.size} ekstre`
+                    )}
+                  >
+                    🗑 Seçilenleri Sil
+                  </button>
+                  <button
+                    className="bulkCancelBtn"
+                    onClick={() => setSelectedStmtIds(new Set())}
+                  >
+                    İptal
+                  </button>
+                </div>
+              )}
+
               {visibleStatements.length === 0 ? (
                 <div className="emptyState">
                   <p className="emptyIcon">🔍</p>
@@ -1089,7 +1144,39 @@ export function App() {
                       .reduce((s, tx) => s + tx.amount, 0);
 
                     return (
-                      <div key={stmt.id} className={`stmtCard${paid ? " stmtCardPaid" : ""}`}>
+                      <div key={stmt.id} className={`stmtCard${paid ? " stmtCardPaid" : ""}${selectedStmtIds.has(stmt.id) ? " stmtCardSelected" : ""}`}>
+                        {/* Checkbox + delete row */}
+                        <div className="stmtSelectRow">
+                          <label className="stmtCheckboxLabel" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="stmtCheckbox"
+                              checked={selectedStmtIds.has(stmt.id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setSelectedStmtIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(stmt.id);
+                                  else next.delete(stmt.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                            <span className="stmtCheckboxText">Seç</span>
+                          </label>
+                          <button
+                            className="stmtDeleteBtn"
+                            title="Bu ekstreyi sil"
+                            disabled={isDeletingStmts}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const label = `${stmt.bank_name ?? "Ekstre"} ${stmt.period_start ?? ""}–${stmt.period_end ?? ""}`;
+                              confirmDeleteStatements([stmt.id], label);
+                            }}
+                          >
+                            🗑
+                          </button>
+                        </div>
                         <div
                           role="button"
                           tabIndex={0}
@@ -2191,6 +2278,36 @@ export function App() {
           )}
         </div>
       </div>
+
+      {/* ── Delete confirm dialog ── */}
+      {deleteConfirm && (
+        <div className="modalOverlay" onClick={() => setDeleteConfirm(null)}>
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confirmDialogIcon">🗑</div>
+            <div className="confirmDialogTitle">Silmek istediğine emin misin?</div>
+            <div className="confirmDialogBody">
+              <strong>{deleteConfirm.label}</strong> silinecek.
+              <br />
+              <span className="confirmDialogNote">Bu işlem geri alınamaz. Ekstre tekrar sync edilebilir.</span>
+            </div>
+            <div className="confirmDialogActions">
+              <button
+                className="confirmBtnCancel"
+                onClick={() => setDeleteConfirm(null)}
+              >
+                İptal
+              </button>
+              <button
+                className="confirmBtnDelete"
+                disabled={isDeletingStmts}
+                onClick={executeDeleteStatements}
+              >
+                {isDeletingStmts ? "Siliniyor…" : "Evet, Sil"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mobile bottom nav ── */}
       <nav className="bottomNav">

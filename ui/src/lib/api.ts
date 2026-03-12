@@ -421,6 +421,35 @@ export type ActivityLogResponse = {
   };
 };
 
+export async function deleteStatement(
+  docId: number,
+  options?: RequestOptions
+): Promise<{ deleted: boolean; doc_id: number }> {
+  const response = await fetch(`/api/statements/${docId}`, {
+    method: "DELETE",
+    headers: withRequestHeaders({ Accept: "application/json" }, options),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Delete statement failed: ${response.status}`));
+  }
+  return (await response.json()) as { deleted: boolean; doc_id: number };
+}
+
+export async function deleteStatementsBulk(
+  ids: number[],
+  options?: RequestOptions
+): Promise<{ deleted: boolean; count: number }> {
+  const response = await fetch("/api/statements", {
+    method: "DELETE",
+    headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
+    body: JSON.stringify({ ids }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Bulk delete failed: ${response.status}`));
+  }
+  return (await response.json()) as { deleted: boolean; count: number };
+}
+
 export async function getActivityLog(options?: RequestOptions): Promise<ActivityLogResponse> {
   const response = await fetch("/api/activity-log", {
     headers: withRequestHeaders({ Accept: "application/json" }, options),

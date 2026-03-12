@@ -559,6 +559,89 @@ async def list_statements(request: Request, limit: int = 50):
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 
 
+@app.delete("/api/statements/{doc_id}")
+async def delete_statement(doc_id: int, request: Request):
+    """Delete a single parsed statement document and its email if no other docs reference it."""
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            doc = session.get(StatementDocument, doc_id)
+            if not doc:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "not_found", "message": "Ekstre bulunamadı."},
+                )
+            email_id = doc.email_ingested_id
+            session.delete(doc)
+            session.flush()
+
+            # If this was the only document for the email, delete the email too
+            remaining = session.scalar(
+                select(func.count(StatementDocument.id)).where(
+                    StatementDocument.email_ingested_id == email_id
+                )
+            )
+            if remaining == 0:
+                email_row = session.get(EmailIngested, email_id)
+                if email_row:
+                    session.delete(email_row)
+
+            session.commit()
+            log_event(
+                request_logger, "statement_deleted", category="parser",
+                doc_id=doc_id, request_id=getattr(request.state, "request_id", None),
+            )
+            return {"deleted": True, "doc_id": doc_id}
+    except HTTPException:
+        raise
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.delete("/api/statements")
+async def delete_statements_bulk(request: Request):
+    """Delete multiple statement documents. Body: {ids: [1,2,3]}"""
+    body = await request.json()
+    ids: list[int] = body.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail={"code": "no_ids", "message": "id listesi boş."})
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            deleted_count = 0
+            email_ids: set[int] = set()
+            for doc_id in ids:
+                doc = session.get(StatementDocument, doc_id)
+                if doc:
+                    email_ids.add(doc.email_ingested_id)
+                    session.delete(doc)
+                    deleted_count += 1
+            session.flush()
+
+            # Clean up orphaned emails
+            for email_id in email_ids:
+                remaining = session.scalar(
+                    select(func.count(StatementDocument.id)).where(
+                        StatementDocument.email_ingested_id == email_id
+                    )
+                )
+                if remaining == 0:
+                    email_row = session.get(EmailIngested, email_id)
+                    if email_row:
+                        session.delete(email_row)
+
+            session.commit()
+            log_event(
+                request_logger, "statements_bulk_deleted", category="parser",
+                count=deleted_count, request_id=getattr(request.state, "request_id", None),
+            )
+            return {"deleted": True, "count": deleted_count}
+    except HTTPException:
+        raise
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
 @app.get("/api/parser/changes")
 async def list_parser_changes(
     request: Request,
