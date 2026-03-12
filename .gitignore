@@ -44,8 +44,6 @@ scripts/__pycache__/
 Thumbs.db
 .cursor/
 
-# ── Docker ───────────────────────────────────────────────────
-.dockerignore
 
 # ── Test artifacts ────────────────────────────────────────────
 .coverage
