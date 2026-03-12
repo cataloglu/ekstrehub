@@ -1,0 +1,36 @@
+# Dev artifacts
+.git/
+.cursor/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node
+ui/node_modules/
+ui/dist/
+
+# Secrets & local data
+.env
+.env.local
+app_settings.json
+auto_sync_settings.json
+*.db
+*.sqlite
+
+# Dev scripts & debug
+scripts/
+datasets/
+docs/
+infra/
+debug_pdf_text.txt
+
+# Test files
+tests/
+pytest.ini
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

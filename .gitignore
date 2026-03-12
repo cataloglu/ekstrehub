@@ -1,25 +1,52 @@
-# Python
+# ── Python ──────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
+*.pyo
 .venv/
 venv/
-
-# Node
-node_modules/
+*.egg-info/
 dist/
 build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Env / secrets
+# ── Node ────────────────────────────────────────────────────
+node_modules/
+ui/dist/
+ui/build/
+
+# ── Secrets & runtime config (NEVER commit these) ───────────
 .env
 .env.local
+.env.*.local
 
-# Logs
+# Runtime settings files contain API keys and personal data
+app_settings.json
+auto_sync_settings.json
+
+# ── Database files (user data) ───────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Temporary / debug files ──────────────────────────────────
 *.log
 logs/
+debug_pdf_text.txt
+scripts/yk_raw_*.txt
+scripts/__pycache__/
 
-# IDE / OS
+# ── IDE / OS ─────────────────────────────────────────────────
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+.cursor/
 
+# ── Docker ───────────────────────────────────────────────────
+.dockerignore
+
+# ── Test artifacts ────────────────────────────────────────────
+.coverage
+htmlcov/

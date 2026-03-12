@@ -1,0 +1,20 @@
+configuration:
+  log_level:
+    name: Log Level
+    description: >-
+      The log verbosity for the add-on.
+      Set to "debug" for troubleshooting, "info" for normal use.
+  gmail_oauth_client_id:
+    name: Gmail OAuth Client ID
+    description: >-
+      Optional. Your Google Cloud OAuth 2.0 Client ID.
+      Only needed if you want to connect Gmail accounts via OAuth
+      (instead of App Password). Leave empty to skip.
+  gmail_oauth_client_secret:
+    name: Gmail OAuth Client Secret
+    description: >-
+      Optional. Your Google Cloud OAuth 2.0 Client Secret.
+      Required only when Gmail OAuth Client ID is set.
+
+network:
+  8000/tcp: "EkstreHub Web UI & API"

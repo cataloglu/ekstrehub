@@ -1,3 +1,19 @@
-fastapi
-uvicorn
+# Web framework & server
+fastapi==0.109.0
+uvicorn[standard]==0.40.0
+python-multipart==0.0.7
+aiofiles==23.2.1
 
+# Database
+sqlalchemy==2.0.25
+alembic==1.18.4
+
+# PDF parsing
+pdfplumber==0.11.9
+pdfminer.six==20251230
+
+# HTTP client (LLM API calls)
+httpx==0.25.2
+
+# PostgreSQL driver (optional – used if DB_URL points to postgres)
+psycopg2-binary==2.9.11

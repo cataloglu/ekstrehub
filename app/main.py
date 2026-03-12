@@ -1,17 +1,807 @@
-from fastapi import FastAPI
+import asyncio
+from contextlib import asynccontextmanager
+from datetime import datetime
+from fastapi import FastAPI, Header, HTTPException
+from fastapi import Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+import json
+import logging
+import pathlib
+from time import perf_counter
+from typing import Literal
 import uvicorn
+from uuid import uuid4
+
+from sqlalchemy import desc, func, select
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
+
+from app.config import get_settings, mask_secret
+from app.db.models import AuditLog, EmailIngested, MailAccount, MailIngestionRun, StatementDocument
+from app.db.session import get_session_factory
+from app.ingestion.gmail_oauth import GmailOAuthError
+from app.ingestion.gmail_oauth_flow import build_auth_url, exchange_code_for_tokens
+from app.ingestion.service import MailIngestionService
+from app.auto_sync import get_auto_sync_status, update_settings as update_auto_sync_settings, run_scheduler
+import app.app_settings as app_settings
+from app.logging_utils import configure_logging, log_event
+from app.schemas.ingestion import (
+    IngestionRunItemResponse,
+    IngestionRunListResponse,
+    IngestionSyncResponse,
+)
+from app.schemas.mail_accounts import (
+    MailAccountCreateRequest,
+    MailAccountListResponse,
+    MailAccountResponse,
+)
+
+bootstrap_logger = logging.getLogger("ekstrehub.bootstrap")
+request_logger = logging.getLogger("ekstrehub.api")
 
 
-app = FastAPI(title="EkstreHub API", version="1.0.0-alpha.1")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    log_event(
+        bootstrap_logger,
+        "startup_config_validated",
+        category="system",
+        app_env=settings.app_env,
+        mail_ingestion_enabled=settings.mail_ingestion_enabled,
+        masked_imap_user=mask_secret(settings.imap_user),
+    )
+
+    # Start background auto-sync scheduler
+    def _svc_factory(account):
+        return MailIngestionService(get_session_factory(), get_settings())
+
+    scheduler_task = asyncio.create_task(
+        run_scheduler(get_session_factory, _svc_factory)
+    )
+
+    yield
+
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(title="EkstreHub API", version="1.0.0-alpha.1", lifespan=lifespan)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(_: Request, exc: HTTPException):
+    detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+    payload = {
+        "error": {
+            "code": detail.get("code", "HTTP_ERROR"),
+            "message": detail.get("message", "Request failed."),
+            "details": detail.get("details", {}),
+        }
+    }
+    return JSONResponse(status_code=exc.status_code, content=payload)
+
+
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid4()))
+    request.state.request_id = request_id
+    started = perf_counter()
+
+    log_event(
+        request_logger,
+        "http_request_started",
+        category="system",
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+    )
+
+    response = await call_next(request)
+    elapsed_ms = round((perf_counter() - started) * 1000, 2)
+    response.headers["X-Request-ID"] = request_id
+
+    log_event(
+        request_logger,
+        "http_request_completed",
+        category="system",
+        request_id=request_id,
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        elapsed_ms=elapsed_ms,
+    )
+    return response
+
+
+def _is_db_available() -> bool:
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            session.execute(select(1))
+        return True
+    except (OperationalError, SQLAlchemyError):
+        return False
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "service": "ekstrehub-api"}
+    settings = get_settings()
+    return {
+        "status": "ok",
+        "service": "ekstrehub-api",
+        "environment": settings.app_env,
+        "mail_ingestion_enabled": settings.mail_ingestion_enabled,
+        "masked_imap_user": mask_secret(settings.imap_user),
+        "db_available": _is_db_available(),
+    }
+
+
+@app.get("/api/cards")
+async def list_cards():
+    return {"items": []}
+
+
+def _raise_db_unavailable(exc: Exception, request_id: str | None = None) -> None:
+    log_event(
+        request_logger,
+        "db_unavailable",
+        category="db",
+        request_id=request_id,
+        error_type=type(exc).__name__,
+        message=str(exc),
+    )
+    raise HTTPException(
+        status_code=503,
+        detail={
+            "code": "DB_UNAVAILABLE",
+            "message": "Database is unavailable. Please check DB service and retry.",
+            "details": {},
+        },
+    ) from exc
+
+
+def _to_mail_account_response(account: MailAccount) -> MailAccountResponse:
+    return MailAccountResponse(
+        id=account.id,
+        provider=account.provider,
+        auth_mode=account.auth_mode,
+        account_label=account.account_label,
+        imap_host=account.imap_host,
+        imap_port=account.imap_port,
+        imap_user=mask_secret(account.imap_user),
+        mailbox=account.mailbox,
+        unseen_only=account.unseen_only,
+        fetch_limit=account.fetch_limit,
+        retry_count=account.retry_count,
+        retry_backoff_seconds=float(account.retry_backoff_seconds),
+        is_active=account.is_active,
+        created_at=account.created_at,
+    )
+
+
+@app.get("/api/mail-accounts", response_model=MailAccountListResponse)
+async def list_mail_accounts(request: Request) -> MailAccountListResponse:
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            rows = session.scalars(select(MailAccount).order_by(desc(MailAccount.created_at))).all()
+            return MailAccountListResponse(items=[_to_mail_account_response(row) for row in rows])
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.post("/api/mail-accounts", response_model=MailAccountResponse)
+async def create_mail_account(
+    payload: MailAccountCreateRequest, request: Request
+) -> MailAccountResponse:
+    imap_host = payload.imap_host
+    imap_port = payload.imap_port
+    if payload.provider == "gmail":
+        imap_host = "imap.gmail.com"
+        imap_port = 993
+    elif payload.provider == "outlook":
+        imap_host = "outlook.office365.com"
+        imap_port = 993
+
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            row = MailAccount(
+                provider=payload.provider,
+                auth_mode=payload.auth_mode,
+                account_label=payload.account_label,
+                imap_host=imap_host,
+                imap_port=imap_port,
+                imap_user=payload.imap_user,
+                imap_password=payload.imap_password,
+                oauth_refresh_token=payload.oauth_refresh_token,
+                mailbox=payload.mailbox,
+                unseen_only=payload.unseen_only,
+                fetch_limit=payload.fetch_limit,
+                retry_count=payload.retry_count,
+                retry_backoff_seconds=payload.retry_backoff_seconds,
+                is_active=payload.is_active,
+            )
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+            return _to_mail_account_response(row)
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.patch("/api/mail-accounts/{account_id}")
+async def patch_mail_account(account_id: int, request: Request) -> dict:
+    """Partial update of mail account settings (mailbox, fetch_limit, unseen_only)."""
+    body = await request.json()
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            row = session.get(MailAccount, account_id)
+            if not row:
+                raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Mail account not found"})
+            allowed = {"mailbox", "fetch_limit", "unseen_only", "is_active", "account_label"}
+            for key, val in body.items():
+                if key in allowed:
+                    setattr(row, key, val)
+            session.commit()
+            session.refresh(row)
+            return _to_mail_account_response(row).model_dump()
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.post("/api/mail-ingestion/sync")
+async def run_mail_ingestion_sync(
+    request: Request,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    mail_account_id: int | None = None,
+) -> IngestionSyncResponse:
+    try:
+        selected_account = None
+        if mail_account_id is not None:
+            session_factory = get_session_factory()
+            with session_factory() as session:
+                selected_account = session.get(MailAccount, mail_account_id)
+            if not selected_account or not selected_account.is_active:
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "code": "MAIL_ACCOUNT_NOT_FOUND",
+                        "message": "Mail account not found or inactive.",
+                        "details": {"mail_account_id": mail_account_id},
+                    },
+                )
+        summary, idempotent = MailIngestionService(mail_account=selected_account).run_sync(
+            idempotency_key=idempotency_key
+        )
+    except GmailOAuthError as exc:
+        log_event(
+            request_logger,
+            "gmail_oauth_refresh_failed",
+            category="auth",
+            request_id=getattr(request.state, "request_id", None),
+            reason=str(exc),
+        )
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "GMAIL_OAUTH_REFRESH_FAILED",
+                "message": "Failed to refresh Gmail OAuth access token.",
+                "details": {"reason": str(exc)},
+            },
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log_event(
+            request_logger,
+            "mail_ingestion_sync_failed",
+            category="mail",
+            request_id=getattr(request.state, "request_id", None),
+            reason=str(exc),
+        )
+        session_factory = get_session_factory()
+        with session_factory() as session:
+            session.add(
+                AuditLog(
+                    actor_type="system",
+                    actor_id=None,
+                    action="mail_ingestion_sync_failed",
+                    entity_type="mail_ingestion_run",
+                    entity_id="-1",
+                    metadata_json=json.dumps({"reason": str(exc)}),
+                )
+            )
+            session.commit()
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "INGESTION_SYNC_FAILED",
+                "message": "Mail ingestion sync failed.",
+                "details": {"reason": str(exc)},
+            },
+        ) from exc
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        session.add(
+            AuditLog(
+                actor_type="system",
+                actor_id=None,
+                action="mail_ingestion_sync_completed",
+                entity_type="mail_ingestion_run",
+                entity_id=str(summary["run_id"]),
+                metadata_json=json.dumps(summary),
+            )
+        )
+        session.commit()
+    log_event(
+        request_logger,
+        "mail_ingestion_sync_completed",
+        category="mail",
+        request_id=getattr(request.state, "request_id", None),
+        run_id=summary["run_id"],
+        idempotent=idempotent,
+    )
+    return IngestionSyncResponse(status="ok", idempotent=idempotent, summary=summary)
+
+
+def _to_run_item(row: MailIngestionRun) -> IngestionRunItemResponse:
+    return IngestionRunItemResponse(
+        id=row.id,
+        mail_account_id=row.mail_account_id,
+        status=row.status,
+        scanned_messages=row.scanned_messages,
+        processed_messages=row.processed_messages,
+        duplicate_messages=row.duplicate_messages,
+        saved_documents=row.saved_documents,
+        duplicate_documents=row.duplicate_documents,
+        skipped_attachments=row.skipped_attachments,
+        failed_messages=row.failed_messages,
+        csv_rows_parsed=row.csv_rows_parsed,
+        started_at=row.started_at,
+        finished_at=row.finished_at,
+    )
+
+
+@app.get("/api/mail-ingestion/runs/{run_id}", response_model=IngestionRunItemResponse)
+async def get_mail_ingestion_run(run_id: int, request: Request) -> IngestionRunItemResponse:
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            run = session.get(MailIngestionRun, run_id)
+            if not run:
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "code": "INGESTION_RUN_NOT_FOUND",
+                        "message": "Ingestion run not found.",
+                        "details": {"run_id": run_id},
+                    },
+                )
+            return _to_run_item(run)
+    except HTTPException:
+        raise
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.get("/api/mail-ingestion/runs", response_model=IngestionRunListResponse)
+async def list_mail_ingestion_runs(
+    request: Request,
+    limit: int = 20,
+    cursor: int | None = None,
+    status: Literal["running", "completed", "completed_with_errors", "failed"] | None = None,
+    started_from: datetime | None = None,
+    started_to: datetime | None = None,
+) -> IngestionRunListResponse:
+    bounded_limit = min(max(limit, 1), 100)
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            stmt = select(MailIngestionRun)
+            if cursor:
+                stmt = stmt.where(MailIngestionRun.id < cursor)
+            if status:
+                stmt = stmt.where(MailIngestionRun.status == status)
+            if started_from:
+                stmt = stmt.where(MailIngestionRun.started_at >= started_from)
+            if started_to:
+                stmt = stmt.where(MailIngestionRun.started_at <= started_to)
+            rows = session.scalars(stmt.order_by(desc(MailIngestionRun.id)).limit(bounded_limit + 1)).all()
+            has_more = len(rows) > bounded_limit
+            page_rows = rows[:bounded_limit]
+            next_cursor = page_rows[-1].id if has_more and page_rows else None
+            return IngestionRunListResponse(items=[_to_run_item(row) for row in page_rows], next_cursor=next_cursor)
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.get("/api/settings/auto-sync")
+async def get_auto_sync(request: Request):
+    """Return current auto-sync settings."""
+    return get_auto_sync_status()
+
+
+@app.post("/api/settings/auto-sync")
+async def set_auto_sync(request: Request):
+    """Update auto-sync settings. Body: {enabled?, interval_minutes?}"""
+    body = await request.json()
+    enabled = body.get("enabled")
+    interval_minutes = body.get("interval_minutes")
+    try:
+        result = update_auto_sync_settings(
+            enabled=bool(enabled) if enabled is not None else None,
+            interval_minutes=int(interval_minutes) if interval_minutes is not None else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail={"code": "invalid_settings", "message": str(exc)})
+    log_event(
+        request_logger,
+        "auto_sync_settings_updated",
+        category="system",
+        enabled=result["enabled"],
+        interval_minutes=result["interval_minutes"],
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return result
+
+
+@app.get("/api/settings/llm")
+async def get_llm_settings(request: Request):
+    """Return current AI/LLM parser settings (API key is masked)."""
+    return app_settings.get_api_response()
+
+
+@app.patch("/api/settings/llm")
+async def patch_llm_settings(request: Request):
+    """Update AI/LLM parser settings. Body: {llm_provider?, llm_api_url?, llm_api_key?, llm_model?, llm_enabled?, llm_timeout_seconds?}"""
+    body = await request.json()
+    result = app_settings.update(body)
+    log_event(
+        request_logger,
+        "llm_settings_updated",
+        category="system",
+        provider=result.get("llm_provider"),
+        model=result.get("llm_model"),
+        api_key_set=result.get("llm_api_key_set"),
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return result
+
+
+@app.post("/api/settings/llm/test")
+async def test_llm_connection(request: Request):
+    """Send a minimal test prompt to verify LLM connectivity."""
+    import httpx
+    cfg = app_settings.get_llm_config()
+    if not cfg["llm_api_url"]:
+        raise HTTPException(status_code=400, detail={"code": "no_url", "message": "LLM API URL ayarlanmamış"})
+    headers = {"Content-Type": "application/json"}
+    if cfg["llm_api_key"]:
+        headers["Authorization"] = f"Bearer {cfg['llm_api_key']}"
+    payload = {
+        "model": cfg["llm_model"],
+        "messages": [{"role": "user", "content": "Say PONG"}],
+        "max_tokens": 10,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                f"{cfg['llm_api_url'].rstrip('/')}/chat/completions",
+                headers=headers,
+                json=payload,
+            )
+        if resp.status_code == 200:
+            data = resp.json()
+            reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return {"ok": True, "model": cfg["llm_model"], "reply": reply.strip()}
+        else:
+            return {"ok": False, "status": resp.status_code, "detail": resp.text[:300]}
+    except Exception as exc:
+        detail = str(exc) if str(exc) else type(exc).__name__
+        return {"ok": False, "detail": detail}
+
+
+@app.get("/api/statements")
+async def list_statements(request: Request, limit: int = 50):
+    """Return parsed statement documents with their transaction data."""
+    bounded_limit = min(max(limit, 1), 200)
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            docs = session.scalars(
+                select(StatementDocument)
+                .where(StatementDocument.parse_status == "parsed")
+                .order_by(desc(StatementDocument.id))
+                .limit(bounded_limit)
+            ).all()
+
+            items = []
+            for doc in docs:
+                parsed = None
+                if doc.parsed_json:
+                    try:
+                        parsed = json.loads(doc.parsed_json)
+                    except Exception:
+                        pass
+
+                # Fetch email subject for context
+                email_row = session.get(EmailIngested, doc.email_ingested_id)
+
+                items.append({
+                    "id": doc.id,
+                    "file_name": doc.file_name,
+                    "doc_type": doc.doc_type,
+                    "parse_status": doc.parse_status,
+                    "file_size_bytes": doc.file_size_bytes,
+                    "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                    "email_subject": email_row.subject if email_row else None,
+                    "bank_name": parsed.get("bank_name") if parsed else None,
+                    "card_number": parsed.get("card_number") if parsed else None,
+                    "period_start": parsed.get("period_start") if parsed else None,
+                    "period_end": parsed.get("period_end") if parsed else None,
+                    "due_date": parsed.get("due_date") if parsed else None,
+                    "total_due_try": parsed.get("total_due_try") if parsed else None,
+                    "minimum_due_try": parsed.get("minimum_due_try") if parsed else None,
+                    "transaction_count": len(parsed.get("transactions", [])) if parsed else 0,
+                    "transactions": parsed.get("transactions", []) if parsed else [],
+                    "parse_notes": parsed.get("parse_notes", []) if parsed else [],
+                })
+
+            return {"items": items}
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.get("/api/parser/changes")
+async def list_parser_changes(
+    request: Request,
+    status: str = "pending",
+):
+    log_event(
+        request_logger,
+        "parser_changes_listed",
+        category="parser",
+        request_id=getattr(request.state, "request_id", None),
+        status=status,
+    )
+    return {"items": [], "status": status}
+
+
+@app.post("/api/parser/changes/{change_id}/approve")
+async def approve_parser_change(change_id: int, request: Request):
+    log_event(
+        request_logger,
+        "parser_change_approved",
+        category="parser",
+        request_id=getattr(request.state, "request_id", None),
+        change_id=change_id,
+    )
+    return {"status": "approved", "change_id": change_id}
+
+
+@app.post("/api/parser/changes/{change_id}/reject")
+async def reject_parser_change(change_id: int, request: Request):
+    log_event(
+        request_logger,
+        "parser_change_rejected",
+        category="parser",
+        request_id=getattr(request.state, "request_id", None),
+        change_id=change_id,
+    )
+    return {"status": "rejected", "change_id": change_id}
+
+
+def _oauth_redirect_uri(request: Request) -> str:
+    base = str(request.base_url).rstrip("/")
+    return f"{base}/api/oauth/gmail/callback"
+
+
+@app.get("/api/oauth/gmail/start")
+async def gmail_oauth_start(request: Request, label: str = "Gmail Hesabı"):
+    settings = get_settings()
+    if not settings.gmail_oauth_client_id:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "OAUTH_NOT_CONFIGURED",
+                "message": "GMAIL_OAUTH_CLIENT_ID ortam degiskeni ayarlanmamis.",
+            },
+        )
+    redirect_uri = _oauth_redirect_uri(request)
+    url = build_auth_url(
+        client_id=settings.gmail_oauth_client_id,
+        redirect_uri=redirect_uri,
+        state=label,
+    )
+    return RedirectResponse(url)
+
+
+@app.get("/api/oauth/gmail/callback")
+async def gmail_oauth_callback(
+    request: Request,
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+):
+    if error:
+        return RedirectResponse(f"/?oauth=error&reason={error}")
+
+    if not code:
+        raise HTTPException(status_code=400, detail={"code": "OAUTH_NO_CODE", "message": "Kod eksik."})
+
+    settings = get_settings()
+    redirect_uri = _oauth_redirect_uri(request)
+    try:
+        tokens = exchange_code_for_tokens(
+            client_id=settings.gmail_oauth_client_id,
+            client_secret=settings.gmail_oauth_client_secret,
+            code=code,
+            redirect_uri=redirect_uri,
+        )
+    except Exception as exc:
+        log_event(request_logger, "gmail_oauth_token_exchange_failed", category="auth", error=str(exc))
+        return RedirectResponse(f"/?oauth=error&reason=token_exchange_failed")
+
+    refresh_token = tokens.get("refresh_token")
+    if not refresh_token:
+        return RedirectResponse("/?oauth=error&reason=no_refresh_token")
+
+    label = state or "Gmail Hesabı"
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            account = MailAccount(
+                provider="gmail",
+                auth_mode="oauth_gmail",
+                account_label=label,
+                imap_host="imap.gmail.com",
+                imap_port=993,
+                imap_user=label,
+                imap_password="",
+                oauth_refresh_token=refresh_token,
+                mailbox="INBOX",
+                unseen_only=True,
+                fetch_limit=20,
+                retry_count=3,
+                retry_backoff_seconds=1.5,
+                is_active=True,
+            )
+            session.add(account)
+            session.commit()
+            session.refresh(account)
+            account_id = account.id
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+    log_event(request_logger, "gmail_oauth_account_created", category="auth", account_id=account_id)
+    return RedirectResponse(f"/?oauth=success&account_id={account_id}")
+
+
+@app.get("/api/activity-log")
+async def get_activity_log(request: Request, limit: int = 80):
+    """Combined activity feed: mail sync runs + document parse events."""
+    bounded_limit = min(max(limit, 1), 200)
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            runs = session.scalars(
+                select(MailIngestionRun).order_by(desc(MailIngestionRun.id)).limit(30)
+            ).all()
+            docs = session.scalars(
+                select(StatementDocument).order_by(desc(StatementDocument.id)).limit(60)
+            ).all()
+
+            activities: list[dict] = []
+
+            for run in runs:
+                duration = None
+                if run.started_at and run.finished_at:
+                    duration = round((run.finished_at - run.started_at).total_seconds())
+                ts = run.finished_at or run.started_at
+                activities.append({
+                    "type": "mail_sync",
+                    "id": f"run_{run.id}",
+                    "run_id": run.id,
+                    "timestamp": ts.isoformat() if ts else None,
+                    "status": run.status,
+                    "mail_account_id": run.mail_account_id,
+                    "scanned": run.scanned_messages,
+                    "processed": run.processed_messages,
+                    "saved": run.saved_documents,
+                    "failed": run.failed_messages,
+                    "duplicates": run.duplicate_messages,
+                    "duration_seconds": duration,
+                })
+
+            for doc in docs:
+                email_row = session.get(EmailIngested, doc.email_ingested_id)
+                bank_name = None
+                tx_count = 0
+                parse_notes: list[str] = []
+                if doc.parsed_json and doc.parse_status == "parsed":
+                    try:
+                        parsed = json.loads(doc.parsed_json)
+                        bank_name = parsed.get("bank_name")
+                        tx_count = len(parsed.get("transactions", []))
+                        parse_notes = parsed.get("parse_notes", [])
+                    except Exception:
+                        pass
+                activities.append({
+                    "type": "document_parse",
+                    "id": f"doc_{doc.id}",
+                    "doc_id": doc.id,
+                    "timestamp": doc.created_at.isoformat() if doc.created_at else None,
+                    "status": doc.parse_status,
+                    "file_name": doc.file_name,
+                    "doc_type": doc.doc_type,
+                    "bank_name": bank_name or (email_row.bank_name if email_row else None),
+                    "email_subject": email_row.subject if email_row else None,
+                    "transaction_count": tx_count,
+                    "file_size_bytes": doc.file_size_bytes,
+                    "parse_notes": parse_notes,
+                })
+
+            activities.sort(key=lambda a: a.get("timestamp") or "", reverse=True)
+            activities = activities[:bounded_limit]
+
+            total_docs = session.scalar(select(func.count(StatementDocument.id))) or 0
+            parsed_docs = session.scalar(
+                select(func.count(StatementDocument.id)).where(StatementDocument.parse_status == "parsed")
+            ) or 0
+            failed_docs = session.scalar(
+                select(func.count(StatementDocument.id)).where(StatementDocument.parse_status == "parse_failed")
+            ) or 0
+
+            return {
+                "activities": activities,
+                "auto_sync": get_auto_sync_status(),
+                "stats": {
+                    "total_docs": total_docs,
+                    "parsed_docs": parsed_docs,
+                    "failed_docs": failed_docs,
+                },
+            }
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+# ── Serve built frontend (production) ──────────────────────────────────────
+# The React app is built into ui/dist/ by `npm run build`.
+# In development, Vite dev server is used instead.
+_FRONTEND_DIR = pathlib.Path(__file__).parent.parent / "ui" / "dist"
+
+if _FRONTEND_DIR.is_dir():
+    # Serve /assets/* and other static files
+    app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIR / "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def _serve_spa(full_path: str):
+        """Catch-all: serve index.html for any non-API path (SPA routing)."""
+        # Never intercept /api/* — those are handled by the routes above
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        file_path = _FRONTEND_DIR / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+        return FileResponse(str(_FRONTEND_DIR / "index.html"))
 
 
 def main() -> None:
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=False)
+    settings = get_settings()
+    uvicorn.run(
+        "app.main:app",
+        host=settings.api_host,
+        port=settings.api_port,
+        reload=False,
+        log_level=settings.log_level,
+    )
 
 
 if __name__ == "__main__":

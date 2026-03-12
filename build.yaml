@@ -1,0 +1,10 @@
+build_from:
+  amd64:    "ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20"
+  aarch64:  "ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20"
+  armv7:    "ghcr.io/home-assistant/armv7-base-python:3.12-alpine3.20"
+
+labels:
+  org.opencontainers.image.title:       "EkstreHub"
+  org.opencontainers.image.description: "Kredi kartı ekstre takip ve analiz sistemi"
+  org.opencontainers.image.source:      "https://github.com/yourusername/ekstrehub"
+  org.opencontainers.image.licenses:    "MIT"
