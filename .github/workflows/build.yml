@@ -22,9 +22,24 @@ env:
   IMAGE_BASE: ghcr.io/cataloglu/ekstrehub
 
 jobs:
+  version:
+    name: Get version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read version from config.yaml
+        id: ver
+        run: |
+          VERSION=$(grep '^version:' config.yaml | head -1 | sed 's/version:[[:space:]]*//' | tr -d '"')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
   build:
     name: Build ${{ matrix.arch }}
     runs-on: ubuntu-latest
+    needs: version
     permissions:
       contents: read
       packages: write
@@ -35,28 +50,21 @@ jobs:
         include:
           - arch: amd64
             platform: linux/amd64
-            build_from: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
+            build_from: "ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20"
 
           - arch: aarch64
             platform: linux/arm64
-            build_from: ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
+            build_from: "ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20"
 
           - arch: armv7
             platform: linux/arm/v7
-            build_from: ghcr.io/home-assistant/armv7-base-python:3.12-alpine3.20
+            build_from: "ghcr.io/home-assistant/armv7-base-python:3.12-alpine3.20"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get add-on version
-        id: version
-        run: |
-          VERSION=$(grep '^version:' config.yaml | sed 's/version: //' | tr -d '"' | tr -d ' ')
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version ${VERSION} for ${{ matrix.arch }}"
-
-      - name: Set up QEMU (for ARM emulation)
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -70,42 +78,32 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push ${{ matrix.arch }}
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: ${{ matrix.platform }}
           push: true
-          build-args: |
-            BUILD_FROM=${{ matrix.build_from }}
+          build-args: BUILD_FROM=${{ matrix.build_from }}
           tags: |
-            ${{ env.IMAGE_BASE }}/${{ matrix.arch }}:${{ steps.version.outputs.VERSION }}
+            ${{ env.IMAGE_BASE }}/${{ matrix.arch }}:${{ needs.version.outputs.version }}
             ${{ env.IMAGE_BASE }}/${{ matrix.arch }}:latest
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
 
   notify:
-    name: Notify on success
+    name: Build summary
     runs-on: ubuntu-latest
-    needs: build
-    if: success()
+    needs: [version, build]
+    if: always()
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Get version
-        id: version
-        run: |
-          VERSION=$(grep '^version:' config.yaml | sed 's/version: //' | tr -d '"' | tr -d ' ')
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-
       - name: Summary
         run: |
-          echo "## EkstreHub v${{ steps.version.outputs.VERSION }} built successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "## EkstreHub v${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Images published to GitHub Container Registry:" >> $GITHUB_STEP_SUMMARY
-          echo "- \`ghcr.io/cataloglu/ekstrehub/amd64:${{ steps.version.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`ghcr.io/cataloglu/ekstrehub/aarch64:${{ steps.version.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`ghcr.io/cataloglu/ekstrehub/armv7:${{ steps.version.outputs.VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "| Arch | Image |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| amd64 | \`${{ env.IMAGE_BASE }}/amd64:${{ needs.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| aarch64 | \`${{ env.IMAGE_BASE }}/aarch64:${{ needs.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| armv7 | \`${{ env.IMAGE_BASE }}/armv7:${{ needs.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Install in Home Assistant" >> $GITHUB_STEP_SUMMARY
-          echo "Add this repository: \`https://github.com/cataloglu/ekstrehub\`" >> $GITHUB_STEP_SUMMARY
+          echo "**HA Kurulum:** \`https://github.com/cataloglu/ekstrehub\`" >> $GITHUB_STEP_SUMMARY
