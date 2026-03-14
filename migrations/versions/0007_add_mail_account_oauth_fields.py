@@ -16,17 +16,18 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("mail_accounts", sa.Column("auth_mode", sa.String(length=24), nullable=False, server_default="password"))
-    op.add_column("mail_accounts", sa.Column("oauth_refresh_token", sa.String(length=1024), nullable=True))
-    op.create_check_constraint(
-        op.f("ck_mail_accounts_mail_accounts_auth_mode_enum"),
-        "mail_accounts",
-        "auth_mode IN ('password', 'oauth_gmail')",
-    )
-    op.alter_column("mail_accounts", "auth_mode", server_default=None)
+    with op.batch_alter_table("mail_accounts") as batch:
+        batch.add_column(sa.Column("auth_mode", sa.String(length=24), nullable=False, server_default="password"))
+        batch.add_column(sa.Column("oauth_refresh_token", sa.String(length=1024), nullable=True))
+        batch.create_check_constraint(
+            op.f("ck_mail_accounts_mail_accounts_auth_mode_enum"),
+            "auth_mode IN ('password', 'oauth_gmail')",
+        )
+        batch.alter_column("auth_mode", server_default=None)
 
 
 def downgrade() -> None:
-    op.drop_constraint(op.f("ck_mail_accounts_mail_accounts_auth_mode_enum"), "mail_accounts", type_="check")
-    op.drop_column("mail_accounts", "oauth_refresh_token")
-    op.drop_column("mail_accounts", "auth_mode")
+    with op.batch_alter_table("mail_accounts") as batch:
+        batch.drop_constraint(op.f("ck_mail_accounts_mail_accounts_auth_mode_enum"), type_="check")
+        batch.drop_column("oauth_refresh_token")
+        batch.drop_column("auth_mode")

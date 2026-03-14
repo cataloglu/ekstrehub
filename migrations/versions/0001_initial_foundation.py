@@ -21,7 +21,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("timezone", sa.String(length=64), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_users")),
         sa.UniqueConstraint("email", name=op.f("uq_users_email")),
     )
@@ -34,7 +34,7 @@ def upgrade() -> None:
         sa.Column("version", sa.String(length=32), nullable=False),
         sa.Column("status", sa.String(length=24), nullable=False),
         sa.Column("created_by", sa.String(length=24), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint(
             "status IN ('active', 'candidate', 'deprecated')",
             name=op.f("ck_parser_versions_parser_versions_status_enum"),
@@ -60,8 +60,7 @@ def upgrade() -> None:
         sa.Column("bank_name", sa.String(length=120), nullable=False),
         sa.Column("card_alias", sa.String(length=120), nullable=False),
         sa.Column("card_last4", sa.String(length=4), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.CheckConstraint("card_last4 ~ '^[0-9]{4}$'", name=op.f("ck_cards_card_last4_digits")),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -87,7 +86,7 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column("parse_confidence", sa.Numeric(precision=5, scale=4), nullable=True),
         sa.Column("status", sa.String(length=24), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint("total_debt >= 0", name=op.f("ck_statements_statements_total_debt_non_negative")),
         sa.CheckConstraint(
             "minimum_payment IS NULL OR minimum_payment >= 0",
@@ -138,7 +137,7 @@ def upgrade() -> None:
         sa.Column("approved_by", sa.String(length=255), nullable=True),
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint(
             "reason IN ('drift_detected', 'manual')",
             name=op.f("ck_parser_change_requests_parser_change_requests_reason_enum"),

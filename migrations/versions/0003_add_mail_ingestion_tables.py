@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("received_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("status", sa.String(length=24), nullable=False),
         sa.Column("raw_storage_key", sa.String(length=512), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint(
             "status IN ('processed', 'failed', 'ignored', 'duplicate')",
             name=op.f("ck_emails_ingested_emails_ingested_status_enum"),
@@ -45,7 +45,7 @@ def upgrade() -> None:
         sa.Column("doc_hash", sa.String(length=64), nullable=False),
         sa.Column("file_size_bytes", sa.BigInteger(), nullable=False),
         sa.Column("doc_type", sa.String(length=24), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint(
             "doc_type IN ('pdf', 'csv', 'image', 'other')",
             name=op.f("ck_statement_documents_statement_documents_doc_type_enum"),

@@ -30,7 +30,7 @@ def upgrade() -> None:
         sa.Column("skipped_attachments", sa.Integer(), nullable=False),
         sa.Column("failed_messages", sa.Integer(), nullable=False),
         sa.Column("csv_rows_parsed", sa.Integer(), nullable=False),
-        sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("started_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.CheckConstraint(

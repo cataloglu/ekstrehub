@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2] – 2026-03-21
+
+### Düzeltmeler
+- **SQLite uyumluluğu**: Tüm migration'larda `now()` → `CURRENT_TIMESTAMP`, PostgreSQL regex (`~`) kaldırıldı
+- İlk kurulumda `sqlite3.OperationalError: near "(": syntax error` hatası giderildi
+
+---
+
 ## [1.0.1] – 2026-03-21
 
 ### Düzeltmeler

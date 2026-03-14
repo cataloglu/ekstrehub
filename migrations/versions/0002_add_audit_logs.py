@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("entity_type", sa.String(length=120), nullable=False),
         sa.Column("entity_id", sa.String(length=120), nullable=False),
         sa.Column("metadata_json", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint(
             "actor_type IN ('system', 'user')",
             name=op.f("ck_audit_logs_audit_logs_actor_type_enum"),

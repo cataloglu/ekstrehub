@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column("retry_count", sa.Integer(), nullable=False),
         sa.Column("retry_backoff_seconds", sa.Numeric(precision=6, scale=2), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.CheckConstraint(
             "provider IN ('gmail', 'outlook', 'custom')",
             name=op.f("ck_mail_accounts_mail_accounts_provider_enum"),
@@ -46,49 +46,38 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name=op.f("pk_mail_accounts")),
     )
 
-    op.add_column("emails_ingested", sa.Column("mail_account_id", sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        op.f("fk_emails_ingested_mail_account_id_mail_accounts"),
-        "emails_ingested",
-        "mail_accounts",
-        ["mail_account_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
-    op.create_index(op.f("ix_emails_ingested_mail_account_id"), "emails_ingested", ["mail_account_id"], unique=False)
+    with op.batch_alter_table("emails_ingested") as batch:
+        batch.add_column(sa.Column("mail_account_id", sa.Integer(), nullable=True))
+        batch.create_foreign_key(
+            op.f("fk_emails_ingested_mail_account_id_mail_accounts"),
+            "mail_accounts",
+            ["mail_account_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch.create_index(op.f("ix_emails_ingested_mail_account_id"), ["mail_account_id"], unique=False)
 
-    op.add_column("mail_ingestion_runs", sa.Column("mail_account_id", sa.Integer(), nullable=True))
-    op.create_foreign_key(
-        op.f("fk_mail_ingestion_runs_mail_account_id_mail_accounts"),
-        "mail_ingestion_runs",
-        "mail_accounts",
-        ["mail_account_id"],
-        ["id"],
-        ondelete="SET NULL",
-    )
-    op.create_index(
-        op.f("ix_mail_ingestion_runs_mail_account_id"),
-        "mail_ingestion_runs",
-        ["mail_account_id"],
-        unique=False,
-    )
+    with op.batch_alter_table("mail_ingestion_runs") as batch:
+        batch.add_column(sa.Column("mail_account_id", sa.Integer(), nullable=True))
+        batch.create_foreign_key(
+            op.f("fk_mail_ingestion_runs_mail_account_id_mail_accounts"),
+            "mail_accounts",
+            ["mail_account_id"],
+            ["id"],
+            ondelete="SET NULL",
+        )
+        batch.create_index(op.f("ix_mail_ingestion_runs_mail_account_id"), ["mail_account_id"], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_mail_ingestion_runs_mail_account_id"), table_name="mail_ingestion_runs")
-    op.drop_constraint(
-        op.f("fk_mail_ingestion_runs_mail_account_id_mail_accounts"),
-        "mail_ingestion_runs",
-        type_="foreignkey",
-    )
-    op.drop_column("mail_ingestion_runs", "mail_account_id")
+    with op.batch_alter_table("mail_ingestion_runs") as batch:
+        batch.drop_index(op.f("ix_mail_ingestion_runs_mail_account_id"))
+        batch.drop_constraint(op.f("fk_mail_ingestion_runs_mail_account_id_mail_accounts"), type_="foreignkey")
+        batch.drop_column("mail_account_id")
 
-    op.drop_index(op.f("ix_emails_ingested_mail_account_id"), table_name="emails_ingested")
-    op.drop_constraint(
-        op.f("fk_emails_ingested_mail_account_id_mail_accounts"),
-        "emails_ingested",
-        type_="foreignkey",
-    )
-    op.drop_column("emails_ingested", "mail_account_id")
+    with op.batch_alter_table("emails_ingested") as batch:
+        batch.drop_index(op.f("ix_emails_ingested_mail_account_id"))
+        batch.drop_constraint(op.f("fk_emails_ingested_mail_account_id_mail_accounts"), type_="foreignkey")
+        batch.drop_column("mail_account_id")
 
     op.drop_table("mail_accounts")

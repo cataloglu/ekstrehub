@@ -16,14 +16,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("mail_ingestion_runs", sa.Column("idempotency_key", sa.String(length=128), nullable=True))
-    op.create_unique_constraint(
-        op.f("uq_mail_ingestion_runs_idempotency_key"),
-        "mail_ingestion_runs",
-        ["idempotency_key"],
-    )
+    with op.batch_alter_table("mail_ingestion_runs") as batch:
+        batch.add_column(sa.Column("idempotency_key", sa.String(length=128), nullable=True))
+        batch.create_unique_constraint(op.f("uq_mail_ingestion_runs_idempotency_key"), ["idempotency_key"])
 
 
 def downgrade() -> None:
-    op.drop_constraint(op.f("uq_mail_ingestion_runs_idempotency_key"), "mail_ingestion_runs", type_="unique")
-    op.drop_column("mail_ingestion_runs", "idempotency_key")
+    with op.batch_alter_table("mail_ingestion_runs") as batch:
+        batch.drop_constraint(op.f("uq_mail_ingestion_runs_idempotency_key"), type_="unique")
+        batch.drop_column("idempotency_key")

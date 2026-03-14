@@ -14,13 +14,15 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # --- statements: drop FK + column user_id ---
+    # --- statements: drop index, FK + column user_id ---
     with op.batch_alter_table("statements") as batch:
+        batch.drop_index("ix_statements_user_id")
         batch.drop_constraint("fk_statements_user_id_users", type_="foreignkey")
         batch.drop_column("user_id")
 
-    # --- cards: drop FK + column user_id, add is_active ---
+    # --- cards: drop index, FK + column user_id, add is_active ---
     with op.batch_alter_table("cards") as batch:
+        batch.drop_index("ix_cards_user_id")
         batch.drop_constraint("fk_cards_user_id_users", type_="foreignkey")
         batch.drop_column("user_id")
         batch.add_column(sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"))
@@ -35,7 +37,7 @@ def downgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column("timezone", sa.String(64), nullable=False, server_default="Europe/Istanbul"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
         sa.PrimaryKeyConstraint("id", name="pk_users"),
         sa.UniqueConstraint("email", name="uq_users_email"),
     )

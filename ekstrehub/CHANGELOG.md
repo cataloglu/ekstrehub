@@ -1,5 +1,14 @@
 # EkstreHub Changelog
 
+## 1.0.2 (2026-03-21)
+
+### Düzeltmeler
+- SQLite uyumluluğu: `now()` → `CURRENT_TIMESTAMP`, PostgreSQL regex kaldırıldı
+- SQLite batch_alter_table: 0005, 0006, 0007, 0008 constraint/index değişiklikleri
+- İlk kurulumda syntax error ve OperationalError giderildi
+
+---
+
 ## 1.0.1 (2026-03-21)
 
 ### Düzeltmeler
