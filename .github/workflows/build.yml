@@ -4,13 +4,13 @@ on:
   push:
     branches: [master]
     paths:
+      - ".github/**"
       - "app/**"
       - "ui/src/**"
       - "ui/package*.json"
       - "migrations/**"
       - "Dockerfile"
-      - "config.yaml"
-      - "build.yaml"
+      - "ekstrehub/**"
       - "requirements.txt"
       - "run.sh"
   release:
@@ -32,7 +32,7 @@ jobs:
       - name: Read version from config.yaml
         id: ver
         run: |
-          VERSION=$(grep '^version:' config.yaml | head -1 | sed 's/version:[[:space:]]*//' | tr -d '"')
+          VERSION=$(grep '^version:' ekstrehub/config.yaml | head -1 | sed 's/version:[[:space:]]*//' | tr -d '"')
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION}"
 

@@ -12,7 +12,7 @@ AI ile parse eder ve güzel bir arayüzde gösterir.
 Home Assistant → **Ayarlar → Add-ons → Add-on Mağazası → ⋮ → Depolar**
 
 ```
-https://github.com/yourusername/ekstrehub
+https://github.com/cataloglu/ekstrehub
 ```
 
 ### 2. Add-on'u Yükle

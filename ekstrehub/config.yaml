@@ -2,7 +2,7 @@ name: "EkstreHub"
 version: "1.0.0"
 slug: "ekstrehub"
 description: "Kredi kartı ekstrelerini Gmail'den otomatik çeker, AI ile parse eder ve analiz eder."
-url: "https://github.com/cataloglu/ekstrehub"
+url: "https://github.com/cataloglu/ekstrehub/tree/master/ekstrehub"
 
 # Pre-built images from GitHub Container Registry
 # Built automatically by GitHub Actions on every release
