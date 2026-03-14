@@ -16,5 +16,3 @@ configuration:
       Optional. Your Google Cloud OAuth 2.0 Client Secret.
       Required only when Gmail OAuth Client ID is set.
 
-network:
-  8000/tcp: "EkstreHub Web UI & API"

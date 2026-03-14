@@ -31,10 +31,14 @@ def _settings_path() -> Path:
     if _SETTINGS_PATH is not None:
         return _SETTINGS_PATH
     db_url = os.getenv("DB_URL", "")
-    # sqlite:///./dev-local.db  or  sqlite:////abs/path.db
     if db_url.startswith("sqlite"):
-        db_file = db_url.replace("sqlite:///", "").lstrip("/").lstrip("./")
-        candidate = Path(db_file).parent / "auto_sync_settings.json"
+        path_part = db_url.replace("sqlite:///", "").replace("sqlite://", "")
+        if path_part.startswith("//"):
+            path_part = "/" + path_part[2:]
+        elif not path_part.startswith("/"):
+            path_part = path_part.lstrip("./")
+        db_path = Path(path_part) if path_part else Path(".")
+        candidate = (db_path.parent if db_path.name else db_path) / "auto_sync_settings.json"
         _SETTINGS_PATH = candidate
     else:
         _SETTINGS_PATH = Path("auto_sync_settings.json")

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.3] – 2026-03-21
+
+### HA Uyumluluk
+- **/data path**: app_settings.json ve auto_sync_settings.json artık `/data/` altında doğru kaydediliyor
+- **config.yaml**: ports, ports_description, HA developer docs referansı
+- **build.yaml**: image source URL düzeltildi
+- **translations**: network bölümü kaldırıldı (uyumsuz format)
+
+---
+
 ## [1.0.2] – 2026-03-21
 
 ### Düzeltmeler

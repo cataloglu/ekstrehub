@@ -54,8 +54,15 @@ def _settings_path() -> Path:
         return _SETTINGS_PATH
     db_url = os.getenv("DB_URL", "")
     if db_url.startswith("sqlite"):
-        db_file = db_url.replace("sqlite:///", "").lstrip("/").lstrip("./")
-        candidate = Path(db_file).parent / "app_settings.json"
+        path_part = db_url.replace("sqlite:///", "").replace("sqlite://", "")
+        if path_part.startswith("//"):
+            path_part = "/" + path_part[2:]
+        elif path_part.startswith("/"):
+            pass
+        else:
+            path_part = path_part.lstrip("./")
+        db_path = Path(path_part) if path_part else Path(".")
+        candidate = (db_path.parent if db_path.name else db_path) / "app_settings.json"
         _SETTINGS_PATH = candidate
     else:
         _SETTINGS_PATH = Path("app_settings.json")

@@ -1,11 +1,10 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration
 name: "EkstreHub"
-version: "1.0.2"
+version: "1.0.3"
 slug: "ekstrehub"
 description: "Kredi kartı ekstrelerini Gmail'den otomatik çeker, AI ile parse eder ve analiz eder. DenizBank, İş Bankası, Garanti, Yapı Kredi destekli."
 url: "https://github.com/cataloglu/ekstrehub/tree/master/ekstrehub"
 
-# Pre-built images from GitHub Container Registry
-# Built automatically by GitHub Actions on every release
 image: "ghcr.io/cataloglu/ekstrehub/{arch}"
 
 arch:
@@ -23,6 +22,12 @@ panel_icon: mdi:credit-card-multiple-outline
 panel_title: "EkstreHub"
 panel_admin: false
 
+# Port 8000 - only needed when not using Ingress (e.g. direct access)
+ports:
+  "8000/tcp": null
+ports_description:
+  "8000/tcp": "Web UI & API (Ingress kullanıyorsanız gerekmez)"
+
 options:
   log_level: "info"
   gmail_oauth_client_id: ""
@@ -33,5 +38,6 @@ schema:
   gmail_oauth_client_id: "str?"
   gmail_oauth_client_secret: "str?"
 
+# /data: add-on persistent storage (survives updates)
 map:
   - data:rw
