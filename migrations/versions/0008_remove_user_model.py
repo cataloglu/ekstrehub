@@ -1,14 +1,14 @@
 """Remove user model: drop user_id FKs from cards/statements, drop users table.
 
-Revision ID: 0008
-Revises: 0007
+Revision ID: 0008_remove_user_model
+Revises: 0007_add_mail_account_oauth_fields
 Create Date: 2026-02-21
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0008"
-down_revision = "0007"
+revision = "0008_remove_user_model"
+down_revision = "0007_add_mail_account_oauth_fields"
 branch_labels = None
 depends_on = None
 
