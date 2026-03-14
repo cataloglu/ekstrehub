@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.1] – 2026-03-21
+
+### Düzeltmeler
+- **Alembic migration**: 0008 `down_revision` düzeltildi — `0007_add_mail_account_oauth_fields` referansı eklendi (KeyError: '0007' hatası giderildi)
+- Add-on ilk kurulumda artık düzgün başlıyor
+
+### Teknik
+- GitHub Actions: Release event desteği — tag oluşturulunca doğru versiyonla build alınır
+
+---
+
 ## [1.0.0] – 2026-03-08
 
 ### İlk Sürüm
