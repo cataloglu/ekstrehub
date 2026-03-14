@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.4] – 2026-03-21
+
+### Düzeltmeler
+- **Migration 0009**: `statement_documents` tablosuna `parse_status` ve `parsed_json` kolonları eklendi
+- `no such column: statement_documents.parse_status` hatası giderildi
+
+---
+
 ## [1.0.3] – 2026-03-21
 
 ### HA Uyumluluk
