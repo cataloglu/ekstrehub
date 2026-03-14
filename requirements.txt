@@ -15,5 +15,5 @@ pdfminer.six==20251230
 # HTTP client (LLM API calls)
 httpx==0.25.2
 
-# PostgreSQL driver (optional – used if DB_URL points to postgres)
-psycopg2-binary==2.9.11
+# PostgreSQL driver – NOT included in Docker image (HA add-on uses SQLite).
+# Install manually: pip install psycopg2-binary  (local dev with Postgres only)
