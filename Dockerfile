@@ -1,3 +1,6 @@
+# ARG declared before any FROM so it can be used in FROM instructions
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
+
 # ════════════════════════════════════════════════════════════
 #  Stage 1 – Build the React frontend
 # ════════════════════════════════════════════════════════════
@@ -17,7 +20,6 @@ RUN npm run build
 # ════════════════════════════════════════════════════════════
 #  Stage 2 – Production image (Home Assistant base)
 # ════════════════════════════════════════════════════════════
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
 FROM ${BUILD_FROM}
 
 ENV PYTHONUNBUFFERED=1 \
