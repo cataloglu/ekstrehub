@@ -2,7 +2,11 @@ name: "EkstreHub"
 version: "1.0.0"
 slug: "ekstrehub"
 description: "Kredi kartı ekstrelerini Gmail'den otomatik çeker, AI ile parse eder ve analiz eder."
-url: "https://github.com/yourusername/ekstrehub"
+url: "https://github.com/cataloglu/ekstrehub"
+
+# Pre-built images from GitHub Container Registry
+# Built automatically by GitHub Actions on every release
+image: "ghcr.io/cataloglu/ekstrehub/{arch}"
 
 arch:
   - amd64
@@ -18,9 +22,6 @@ ingress_port: 8000
 panel_icon: mdi:credit-card-multiple-outline
 panel_title: "EkstreHub"
 panel_admin: false
-
-# Persistent data (database + settings) are stored in /data automatically.
-# Users configure mail accounts and LLM settings through the app's own UI.
 
 options:
   log_level: "info"
