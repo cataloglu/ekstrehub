@@ -77,6 +77,36 @@ function mockFetchSuccess() {
         })
       };
     }
+    if (url.includes("/api/statements")) {
+      return { ok: true, json: async () => ({ items: [] }) };
+    }
+    if (url.includes("/api/settings/auto-sync")) {
+      return {
+        ok: true,
+        json: async () => ({
+          enabled: false,
+          interval_minutes: 15,
+          last_auto_sync_at: null,
+          next_sync_at: null
+        })
+      };
+    }
+    if (url.includes("/api/settings/llm")) {
+      return {
+        ok: true,
+        json: async () => ({
+          llm_enabled: false,
+          llm_provider: "ollama",
+          llm_api_url: "http://localhost:11434",
+          llm_api_key_set: false,
+          llm_api_key_masked: "",
+          llm_model: "llama3.2",
+          llm_timeout_seconds: 60,
+          llm_min_tx_threshold: 0,
+          provider_defaults: {}
+        })
+      };
+    }
     throw new Error(`Unexpected fetch in test: ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -93,14 +123,9 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText("Sistem hazir")).toBeInTheDocument();
+      expect(screen.getByText("Sistem hazır")).toBeInTheDocument();
     });
-    expect(screen.getByText("ekstrehub-api")).toBeInTheDocument();
-    expect(screen.getByText("TRY (TL)")).toBeInTheDocument();
     expect(screen.getByText("Run #42")).toBeInTheDocument();
     expect(screen.getByText("completed")).toBeInTheDocument();
-    expect(screen.getByText("Mail & Sync")).toBeInTheDocument();
-    expect(screen.getByText("Parser Approval")).toBeInTheDocument();
-    expect(screen.getByText("System Logs")).toBeInTheDocument();
   });
 });

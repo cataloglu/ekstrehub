@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  apiUrl,
   approveParserChange,
   createMailAccount,
   getAutoSync,
@@ -1765,7 +1766,7 @@ export function App() {
                 <div className="formGrid">
                   <a
                     className="btn btnGoogle"
-                    href={`/api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
+                    href={apiUrl(`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`)}
                   >
                     Google ile Bağlan (Gmail OAuth)
                   </a>

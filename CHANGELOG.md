@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.5] – 2026-03-21
+
+### Düzeltmeler
+- **404 hatası giderildi**: HA Ingress alt path'te (örn. `/app/xxx`) Mail hesabı ekle / Google ile Bağlan tıklandığında 404 dönme sorunu çözüldü
+- API çağrıları ve OAuth linki artık mevcut base path'e göre doğru çözümleniyor
+
+---
+
 ## [1.0.4] – 2026-03-21
 
 ### Düzeltmeler
