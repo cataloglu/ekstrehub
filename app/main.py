@@ -685,7 +685,7 @@ async def reject_parser_change(change_id: int, request: Request):
 
 
 def _oauth_base(request: Request) -> tuple[str, str]:
-    """(redirect_uri, redirect_base_path) for OAuth. Uses X-Forwarded-* and X-Ingress-Path when behind HA Ingress."""
+    """(redirect_uri, redirect_base_path) for OAuth. Uses X-Forwarded-*, X-Ingress-Path, or Referer when behind proxy."""
     forwarded_host = request.headers.get("x-forwarded-host", "").strip().split(",")[0].strip()
     forwarded_proto = request.headers.get("x-forwarded-proto", "").strip().split(",")[0].strip()
     ingress_path = request.headers.get("x-ingress-path", "").strip()
@@ -697,6 +697,19 @@ def _oauth_base(request: Request) -> tuple[str, str]:
         if host:
             base = f"{scheme}://{host}{ingress_path}".rstrip("/")
             return f"{base}/api/oauth/gmail/callback", ingress_path or "/"
+    referer = request.headers.get("referer") or request.headers.get("referrer")
+    if referer:
+        from urllib.parse import urlparse
+        try:
+            p = urlparse(referer)
+            if p.scheme and p.netloc:
+                path = p.path.rstrip("/") or "/"
+                if "/api/" in path:
+                    path = path.split("/api/")[0].rstrip("/") or "/"
+                base = f"{p.scheme}://{p.netloc}{path}"
+                return f"{base}/api/oauth/gmail/callback", path
+        except Exception:
+            pass
     base = str(request.base_url).rstrip("/")
     return f"{base}/api/oauth/gmail/callback", "/"
 

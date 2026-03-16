@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.9 (2026-03-21)
+
+### Düzeltmeler
+- **Gmail OAuth**: Referer header fallback — proxy header'ları yoksa (HA Ingress) sayfa URL'sinden redirect_uri oluşturuluyor
+
+---
+
 ## 1.0.8 (2026-03-21)
 
 ### Düzeltmeler

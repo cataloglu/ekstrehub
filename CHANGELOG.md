@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.9] – 2026-03-21
+
+### Düzeltmeler
+- Gmail OAuth: Referer fallback ile redirect_uri (proxy header yoksa)
+
+---
+
 ## [1.0.8] – 2026-03-21
 
 ### Düzeltmeler
