@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.7] – 2026-03-21
+
+### Düzeltmeler
+- **OAUTH_NOT_CONFIGURED**: Gmail OAuth yapılandırılmamışsa net mesaj + App Password alternatifi
+- Gmail için App Password seçeneği — OAuth olmadan Gmail bağlanabilir
+- Health API: `gmail_oauth_configured` alanı
+- DOCS.md: Gmail OAuth kurulum rehberi
+
+---
+
 ## [1.0.6] – 2026-03-21
 
 ### Düzeltmeler

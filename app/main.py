@@ -138,6 +138,9 @@ async def health():
         "mail_ingestion_enabled": settings.mail_ingestion_enabled,
         "masked_imap_user": mask_secret(settings.imap_user),
         "db_available": _is_db_available(),
+        "gmail_oauth_configured": bool(
+            settings.gmail_oauth_client_id and settings.gmail_oauth_client_secret
+        ),
     }
 
 
@@ -694,7 +697,7 @@ async def gmail_oauth_start(request: Request, label: str = "Gmail Hesabı"):
             status_code=503,
             detail={
                 "code": "OAUTH_NOT_CONFIGURED",
-                "message": "GMAIL_OAUTH_CLIENT_ID ortam degiskeni ayarlanmamis.",
+                "message": "Gmail OAuth kullanmak için add-on yapılandırmasında Client ID ve Secret girin. Ayarlar → Eklentiler → EkstreHub → Yapılandır. Alternatif: Gmail için 'Şifre / Uygulama Şifresi' ile App Password kullanın.",
             },
         )
     redirect_uri = _oauth_redirect_uri(request)

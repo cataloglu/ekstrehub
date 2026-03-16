@@ -6,7 +6,7 @@ function mockFetchSuccess() {
   const fetchMock = vi.fn();
   fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input);
-    if (url.includes("/api/health")) {
+    if (url.includes("api/health")) {
       return {
         ok: true,
         json: async () => ({
@@ -15,11 +15,12 @@ function mockFetchSuccess() {
           environment: "development",
           mail_ingestion_enabled: true,
           masked_imap_user: "te******om",
-          db_available: true
+          db_available: true,
+          gmail_oauth_configured: false
         })
       };
     }
-    if (url.includes("/api/mail-ingestion/runs")) {
+    if (url.includes("api/mail-ingestion/runs")) {
       return {
         ok: true,
         json: async () => ({
@@ -43,7 +44,7 @@ function mockFetchSuccess() {
         })
       };
     }
-    if (url.includes("/api/mail-accounts")) {
+    if (url.includes("api/mail-accounts")) {
       return {
         ok: true,
         json: async () => ({
@@ -68,7 +69,7 @@ function mockFetchSuccess() {
         })
       };
     }
-    if (url.includes("/api/parser/changes")) {
+    if (url.includes("api/parser/changes")) {
       return {
         ok: true,
         json: async () => ({
@@ -77,10 +78,10 @@ function mockFetchSuccess() {
         })
       };
     }
-    if (url.includes("/api/statements")) {
+    if (url.includes("api/statements")) {
       return { ok: true, json: async () => ({ items: [] }) };
     }
-    if (url.includes("/api/settings/auto-sync")) {
+    if (url.includes("api/settings/auto-sync")) {
       return {
         ok: true,
         json: async () => ({
@@ -91,7 +92,7 @@ function mockFetchSuccess() {
         })
       };
     }
-    if (url.includes("/api/settings/llm")) {
+    if (url.includes("api/settings/llm")) {
       return {
         ok: true,
         json: async () => ({

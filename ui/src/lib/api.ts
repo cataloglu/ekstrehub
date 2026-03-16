@@ -5,6 +5,7 @@ export type HealthResponse = {
   mail_ingestion_enabled: boolean;
   masked_imap_user: string;
   db_available?: boolean;
+  gmail_oauth_configured?: boolean;
 };
 
 export type IngestionRunItem = {

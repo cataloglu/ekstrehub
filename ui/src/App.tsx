@@ -81,7 +81,7 @@ export function App() {
   const [logCategoryFilter, setLogCategoryFilter] = useState<"all" | UiLogCategory>("all");
   const [logSearch, setLogSearch] = useState("");
   const [formProvider, setFormProvider] = useState<"gmail" | "outlook" | "custom">("gmail");
-  const [formAuthMode, setFormAuthMode] = useState<"password" | "oauth_gmail">("oauth_gmail");
+  const [formAuthMode, setFormAuthMode] = useState<"password" | "oauth_gmail">("password");
   const [formLabel, setFormLabel] = useState("Primary Gmail");
   const [formImapUser, setFormImapUser] = useState("");
   const [formImapPassword, setFormImapPassword] = useState("");
@@ -324,7 +324,7 @@ export function App() {
     const requestId = nextRequestId("mail-create");
     pushLog("info", "mail", "Mail hesabı oluşturuluyor...", requestId);
     try {
-      const authMode = formProvider === "gmail" ? "oauth_gmail" : formAuthMode;
+      const authMode = formAuthMode;
       const created = await createMailAccount(
         {
           provider: formProvider,
@@ -1763,24 +1763,31 @@ export function App() {
               <section className="section">
                 <h2 className="sectionTitle" style={{ marginBottom: 14 }}>Yeni Mail Hesabı Ekle</h2>
                 <div className="formGrid">
-                  <a
-                    className="btn btnGoogle"
-                    href={`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
-                  >
-                    Google ile Bağlan (Gmail OAuth)
-                  </a>
-                  <div className="formDivider">— ya da manuel ekle —</div>
+                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
+                    <a
+                      className="btn btnGoogle"
+                      href={`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
+                    >
+                      Google ile Bağlan (Gmail OAuth)
+                    </a>
+                  )}
+                  {formProvider === "gmail" && !health?.gmail_oauth_configured && (
+                    <div className="oauthWarning" style={{ gridColumn: "1 / -1", padding: 12, background: "rgba(251,191,36,0.15)", borderRadius: 8, fontSize: 13 }}>
+                      <strong>Gmail OAuth:</strong> Add-on yapılandırmasında Client ID ve Secret girin (Ayarlar → Eklentiler → EkstreHub → Yapılandır). Alternatif: aşağıda &quot;Şifre / Uygulama Şifresi&quot; seçip Gmail App Password kullanın.
+                    </div>
+                  )}
+                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
+                    <div className="formDivider">— ya da manuel ekle —</div>
+                  )}
                   <select className="filterSelect" value={formProvider} onChange={(e) => setFormProvider(e.target.value as "gmail" | "outlook" | "custom")}>
                     <option value="gmail">Gmail</option>
                     <option value="outlook">Outlook / Office 365</option>
                     <option value="custom">Özel IMAP</option>
                   </select>
-                  {formProvider !== "gmail" && (
-                    <select className="filterSelect" value={formAuthMode} onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}>
-                      <option value="password">Şifre / Uygulama Şifresi</option>
-                      <option value="oauth_gmail">OAuth Refresh Token</option>
-                    </select>
-                  )}
+                  <select className="filterSelect" value={formAuthMode} onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}>
+                    <option value="password">Şifre / Uygulama Şifresi</option>
+                    <option value="oauth_gmail">OAuth Refresh Token</option>
+                  </select>
                   <input className="formInput" placeholder="Hesap adı (örn: Kart Maili)" value={formLabel} onChange={(e) => setFormLabel(e.target.value)} />
                   {formProvider === "custom" && (
                     <input className="formInput" placeholder="IMAP host (örn: imap.catal.net)" value={formImapHost} onChange={(e) => setFormImapHost(e.target.value)} />

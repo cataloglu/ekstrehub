@@ -1,5 +1,15 @@
 # EkstreHub Changelog
 
+## 1.0.7 (2026-03-21)
+
+### Düzeltmeler
+- **OAUTH_NOT_CONFIGURED**: Gmail OAuth yapılandırılmamışsa artık net mesaj + App Password alternatifi gösteriliyor
+- Gmail için "Şifre / Uygulama Şifresi" (App Password) seçeneği eklendi — OAuth olmadan da Gmail bağlanabilir
+- Health API: `gmail_oauth_configured` alanı eklendi
+- DOCS.md: Gmail OAuth kurulum rehberi eklendi
+
+---
+
 ## 1.0.6 (2026-03-21)
 
 ### Düzeltmeler
