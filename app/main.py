@@ -684,9 +684,33 @@ async def reject_parser_change(change_id: int, request: Request):
     return {"status": "rejected", "change_id": change_id}
 
 
-def _oauth_redirect_uri(request: Request) -> str:
+def _oauth_base(request: Request) -> tuple[str, str]:
+    """(redirect_uri, redirect_base_path) for OAuth. Uses X-Forwarded-* and X-Ingress-Path when behind HA Ingress."""
+    forwarded_host = request.headers.get("x-forwarded-host", "").strip().split(",")[0].strip()
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").strip().split(",")[0].strip()
+    ingress_path = request.headers.get("x-ingress-path", "").strip()
+    if ingress_path and not ingress_path.endswith("/"):
+        ingress_path += "/"
+    if forwarded_host or ingress_path:
+        host = forwarded_host or (request.headers.get("host") or "").split(":")[0].strip()
+        scheme = forwarded_proto or "https"
+        if host:
+            base = f"{scheme}://{host}{ingress_path}".rstrip("/")
+            return f"{base}/api/oauth/gmail/callback", ingress_path or "/"
     base = str(request.base_url).rstrip("/")
-    return f"{base}/api/oauth/gmail/callback"
+    return f"{base}/api/oauth/gmail/callback", "/"
+
+
+def _oauth_redirect_uri(request: Request) -> str:
+    uri, _ = _oauth_base(request)
+    return uri
+
+
+@app.get("/api/oauth/gmail/redirect-uri")
+async def gmail_oauth_redirect_uri_info(request: Request):
+    """Returns the redirect URI to add in Google Cloud Console. Helps with HA Ingress setup."""
+    uri = _oauth_redirect_uri(request)
+    return {"redirect_uri": uri}
 
 
 @app.get("/api/oauth/gmail/start")
@@ -716,8 +740,15 @@ async def gmail_oauth_callback(
     state: str | None = None,
     error: str | None = None,
 ):
+    from urllib.parse import quote
+
+    _, base_path = _oauth_base(request)
+    root = base_path.rstrip("/") or "/"
+    if not root.endswith("/"):
+        root += "/"
+
     if error:
-        return RedirectResponse(f"/?oauth=error&reason={error}")
+        return RedirectResponse(f"{root}?oauth=error&reason={quote(error, safe='')}")
 
     if not code:
         raise HTTPException(status_code=400, detail={"code": "OAUTH_NO_CODE", "message": "Kod eksik."})
@@ -733,11 +764,11 @@ async def gmail_oauth_callback(
         )
     except Exception as exc:
         log_event(request_logger, "gmail_oauth_token_exchange_failed", category="auth", error=str(exc))
-        return RedirectResponse(f"/?oauth=error&reason=token_exchange_failed")
+        return RedirectResponse(f"{root}?oauth=error&reason=token_exchange_failed")
 
     refresh_token = tokens.get("refresh_token")
     if not refresh_token:
-        return RedirectResponse("/?oauth=error&reason=no_refresh_token")
+        return RedirectResponse(f"{root}?oauth=error&reason=no_refresh_token")
 
     label = state or "Gmail Hesabı"
     session_factory = get_session_factory()
@@ -767,7 +798,7 @@ async def gmail_oauth_callback(
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 
     log_event(request_logger, "gmail_oauth_account_created", category="auth", account_id=account_id)
-    return RedirectResponse(f"/?oauth=success&account_id={account_id}")
+    return RedirectResponse(f"{root}?oauth=success&account_id={account_id}")
 
 
 @app.get("/api/activity-log")

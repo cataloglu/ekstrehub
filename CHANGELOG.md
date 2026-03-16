@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.8] – 2026-03-21
+
+### Düzeltmeler
+- **Gmail OAuth (HA Ingress)**: redirect_uri X-Forwarded-* ve X-Ingress-Path ile doğru oluşturuluyor
+- OAuth callback redirect'leri ingress path'e göre
+- `/api/oauth/gmail/redirect-uri` — Google'a eklenecek URI'yi gösterir
+
+---
+
 ## [1.0.7] – 2026-03-21
 
 ### Düzeltmeler

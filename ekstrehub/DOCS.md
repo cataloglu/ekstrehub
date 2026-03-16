@@ -25,7 +25,7 @@ Kredi kartı ekstrelerini Gmail'den otomatik indirir, AI ile parse eder ve Home 
 1. [Google Cloud Console](https://console.cloud.google.com/) → Proje oluştur
 2. **APIs & Services** → **Credentials** → **Create Credentials** → **OAuth client ID**
 3. Application type: **Web application**
-4. Authorized redirect URIs: `https://EV-HOST/api/oauth/gmail/callback` (EV-HOST = Home Assistant adresiniz)
+4. **Authorized redirect URIs**: Add-on içinde `https://HA-ADRESINIZ/api/oauth/gmail/redirect-uri` adresine gidip dönen `redirect_uri` değerini kopyalayın ve Google'a ekleyin. (HA Ingress kullanıyorsanız path farklı olur — bu endpoint doğru URI'yi gösterir)
 5. Client ID ve Secret'ı kopyala
 6. **Ayarlar** → **Eklentiler** → **EkstreHub** → **Yapılandır** → `gmail_oauth_client_id` ve `gmail_oauth_client_secret` alanlarına yapıştır
 7. Add-on'u yeniden başlat

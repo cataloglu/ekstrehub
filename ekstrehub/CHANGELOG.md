@@ -1,5 +1,14 @@
 # EkstreHub Changelog
 
+## 1.0.8 (2026-03-21)
+
+### Düzeltmeler
+- **Gmail OAuth (HA Ingress)**: redirect_uri artık X-Forwarded-Host, X-Forwarded-Proto ve X-Ingress-Path header'larından doğru oluşturuluyor — localde çalışan OAuth artık HA'da da çalışır
+- OAuth callback sonrası yönlendirme ingress path'e göre yapılıyor
+- `/api/oauth/gmail/redirect-uri` endpoint'i: Google Cloud Console'a eklenecek URI'yi gösterir
+
+---
+
 ## 1.0.7 (2026-03-21)
 
 ### Düzeltmeler
