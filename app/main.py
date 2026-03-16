@@ -702,7 +702,7 @@ def _oauth_base(request: Request) -> tuple[str, str]:
         from urllib.parse import urlparse
         try:
             p = urlparse(referer)
-            if p.scheme and p.netloc:
+            if p.scheme and p.netloc and "accounts.google.com" not in p.netloc:
                 path = p.path.rstrip("/") or "/"
                 if "/api/" in path:
                     path = path.split("/api/")[0].rstrip("/") or "/"
