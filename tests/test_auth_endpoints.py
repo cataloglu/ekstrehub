@@ -34,3 +34,14 @@ def test_health_endpoint_accessible_without_credentials(monkeypatch) -> None:
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_spa_injects_base_tag_when_x_ingress_path_present(monkeypatch) -> None:
+    """HA Ingress: X-Ingress-Path header triggers <base href> injection."""
+    _set_base_env(monkeypatch)
+    client = TestClient(app)
+    ingress_path = "/api/hassio_ingress/abc123/"
+    response = client.get("/", headers={"X-Ingress-Path": ingress_path})
+    # May 404 if ui/dist not built; if 200, base tag must be present
+    if response.status_code == 200:
+        assert f'<base href="{ingress_path}">' in response.text

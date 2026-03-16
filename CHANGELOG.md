@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.6] – 2026-03-21
+
+### Düzeltmeler
+- **404 hatası (HA Ingress)**: `X-Ingress-Path` header kullanılarak index.html'e `<base href>` enjekte ediliyor — tüm API ve asset path'leri artık doğru çözümleniyor
+- Frigate, motionEye gibi add-on'lardaki kanıtlanmış yöntem uygulandı
+
+---
+
 ## [1.0.5] – 2026-03-21
 
 ### Düzeltmeler

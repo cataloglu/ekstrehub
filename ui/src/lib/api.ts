@@ -124,17 +124,6 @@ export type RequestOptions = {
   requestId?: string;
 };
 
-/** Base path for API calls. Required when app runs under subpath (e.g. HA add-on at /app/xxx). */
-export function apiBase(): string {
-  if (typeof window === "undefined") return "";
-  const p = window.location.pathname;
-  return p.endsWith("/") ? p : p + "/";
-}
-
-export function apiUrl(path: string): string {
-  return apiBase() + path;
-}
-
 function withRequestHeaders(headers: HeadersInit = {}, options?: RequestOptions): HeadersInit {
   if (!options?.requestId) {
     return headers;
@@ -163,7 +152,7 @@ async function readErrorMessage(response: Response, fallback: string): Promise<s
 }
 
 export async function getHealth(options?: RequestOptions): Promise<HealthResponse> {
-  const response = await fetch(apiUrl("api/health"), {
+  const response = await fetch("api/health", {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) {
@@ -185,7 +174,7 @@ export async function getIngestionRuns(
   if (status && status !== "all") {
     query.set("status", status);
   }
-  const response = await fetch(apiUrl(`api/mail-ingestion/runs?${query.toString()}`), {
+  const response = await fetch(`api/mail-ingestion/runs?${query.toString()}`, {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) {
@@ -195,7 +184,7 @@ export async function getIngestionRuns(
 }
 
 export async function getMailAccounts(options?: RequestOptions): Promise<MailAccountListResponse> {
-  const response = await fetch(apiUrl("api/mail-accounts"), {
+  const response = await fetch("api/mail-accounts", {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) {
@@ -208,7 +197,7 @@ export async function createMailAccount(
   payload: MailAccountCreatePayload,
   options?: RequestOptions
 ): Promise<MailAccount> {
-  const response = await fetch(apiUrl("api/mail-accounts"), {
+  const response = await fetch("api/mail-accounts", {
     method: "POST",
     headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
     body: JSON.stringify(payload),
@@ -224,7 +213,7 @@ export async function patchMailAccount(
   patch: Partial<Pick<MailAccount, "mailbox" | "fetch_limit" | "unseen_only" | "is_active" | "account_label">>,
   options?: RequestOptions
 ): Promise<MailAccount> {
-  const response = await fetch(apiUrl(`api/mail-accounts/${accountId}`), {
+  const response = await fetch(`api/mail-accounts/${accountId}`, {
     method: "PATCH",
     headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
     body: JSON.stringify(patch),
@@ -240,7 +229,7 @@ export async function triggerMailSync(
   options?: RequestOptions
 ): Promise<IngestionSyncResponse> {
   const response = await fetch(
-    apiUrl(`api/mail-ingestion/sync?mail_account_id=${encodeURIComponent(String(mailAccountId))}`),
+    `api/mail-ingestion/sync?mail_account_id=${encodeURIComponent(String(mailAccountId))}`,
     {
       method: "POST",
       headers: withRequestHeaders(
@@ -256,7 +245,7 @@ export async function triggerMailSync(
 }
 
 export async function getStatements(options?: RequestOptions): Promise<StatementListResponse> {
-  const response = await fetch(apiUrl("api/statements"), {
+  const response = await fetch("api/statements", {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) {
@@ -270,7 +259,7 @@ export async function getParserChanges(
   options?: RequestOptions
 ): Promise<ParserChangeListResponse> {
   const query = new URLSearchParams({ status });
-  const response = await fetch(apiUrl(`api/parser/changes?${query.toString()}`), {
+  const response = await fetch(`api/parser/changes?${query.toString()}`, {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) {
@@ -283,7 +272,7 @@ export async function approveParserChange(
   changeId: number,
   options?: RequestOptions
 ): Promise<{ status: string; change_id: number }> {
-  const response = await fetch(apiUrl(`api/parser/changes/${changeId}/approve`), {
+  const response = await fetch(`api/parser/changes/${changeId}/approve`, {
     method: "POST",
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
@@ -301,7 +290,7 @@ export type AutoSyncSettings = {
 };
 
 export async function getAutoSync(options?: RequestOptions): Promise<AutoSyncSettings> {
-  const response = await fetch(apiUrl("api/settings/auto-sync"), {
+  const response = await fetch("api/settings/auto-sync", {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) {
@@ -314,7 +303,7 @@ export async function setAutoSync(
   payload: Partial<Pick<AutoSyncSettings, "enabled" | "interval_minutes">>,
   options?: RequestOptions
 ): Promise<AutoSyncSettings> {
-  const response = await fetch(apiUrl("api/settings/auto-sync"), {
+  const response = await fetch("api/settings/auto-sync", {
     method: "POST",
     headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
     body: JSON.stringify(payload),
@@ -338,7 +327,7 @@ export type LlmSettings = {
 };
 
 export async function getLlmSettings(options?: RequestOptions): Promise<LlmSettings> {
-  const response = await fetch(apiUrl("api/settings/llm"), {
+  const response = await fetch("api/settings/llm", {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) throw new Error(`LLM settings fetch failed: ${response.status}`);
@@ -349,7 +338,7 @@ export async function patchLlmSettings(
   patch: Partial<{ llm_provider: string; llm_api_url: string; llm_api_key: string; llm_model: string; llm_enabled: boolean; llm_timeout_seconds: number }>,
   options?: RequestOptions
 ): Promise<LlmSettings> {
-  const response = await fetch(apiUrl("api/settings/llm"), {
+  const response = await fetch("api/settings/llm", {
     method: "PATCH",
     headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
     body: JSON.stringify(patch),
@@ -359,7 +348,7 @@ export async function patchLlmSettings(
 }
 
 export async function testLlmConnection(options?: RequestOptions): Promise<{ ok: boolean; model?: string; reply?: string; detail?: string }> {
-  const response = await fetch(apiUrl("api/settings/llm/test"), {
+  const response = await fetch("api/settings/llm/test", {
     method: "POST",
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
@@ -436,7 +425,7 @@ export async function deleteStatement(
   docId: number,
   options?: RequestOptions
 ): Promise<{ deleted: boolean; doc_id: number }> {
-  const response = await fetch(apiUrl(`api/statements/${docId}`), {
+  const response = await fetch(`api/statements/${docId}`, {
     method: "DELETE",
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
@@ -450,7 +439,7 @@ export async function deleteStatementsBulk(
   ids: number[],
   options?: RequestOptions
 ): Promise<{ deleted: boolean; count: number }> {
-  const response = await fetch(apiUrl("api/statements"), {
+  const response = await fetch("api/statements", {
     method: "DELETE",
     headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
     body: JSON.stringify({ ids }),
@@ -462,7 +451,7 @@ export async function deleteStatementsBulk(
 }
 
 export async function getActivityLog(options?: RequestOptions): Promise<ActivityLogResponse> {
-  const response = await fetch(apiUrl("api/activity-log"), {
+  const response = await fetch("api/activity-log", {
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });
   if (!response.ok) {
@@ -475,7 +464,7 @@ export async function rejectParserChange(
   changeId: number,
   options?: RequestOptions
 ): Promise<{ status: string; change_id: number }> {
-  const response = await fetch(apiUrl(`api/parser/changes/${changeId}/reject`), {
+  const response = await fetch(`api/parser/changes/${changeId}/reject`, {
     method: "POST",
     headers: withRequestHeaders({ Accept: "application/json" }, options),
   });

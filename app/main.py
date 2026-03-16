@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, Header, HTTPException
 from fastapi import Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import json
 import logging
@@ -864,8 +864,10 @@ if _FRONTEND_DIR.is_dir():
     # Serve /assets/* and other static files
     app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIR / "assets")), name="assets")
 
+    _INDEX_HTML_PATH = _FRONTEND_DIR / "index.html"
+
     @app.get("/{full_path:path}", include_in_schema=False)
-    async def _serve_spa(full_path: str):
+    async def _serve_spa(request: Request, full_path: str):
         """Catch-all: serve index.html for any non-API path (SPA routing)."""
         # Never intercept /api/* — those are handled by the routes above
         if full_path.startswith("api/"):
@@ -873,7 +875,15 @@ if _FRONTEND_DIR.is_dir():
         file_path = _FRONTEND_DIR / full_path
         if file_path.is_file():
             return FileResponse(str(file_path))
-        return FileResponse(str(_FRONTEND_DIR / "index.html"))
+        # Serve index.html — inject <base href> when behind HA Ingress (X-Ingress-Path)
+        html = _INDEX_HTML_PATH.read_text(encoding="utf-8")
+        ingress_path = request.headers.get("x-ingress-path", "").strip()
+        if ingress_path:
+            if not ingress_path.endswith("/"):
+                ingress_path += "/"
+            base_tag = f'<base href="{ingress_path}">'
+            html = html.replace("<head>", f"<head>\n    {base_tag}", 1)
+        return HTMLResponse(html)
 
 
 def main() -> None:
