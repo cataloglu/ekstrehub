@@ -328,7 +328,8 @@ export function App() {
     const requestId = nextRequestId("mail-create");
     pushLog("info", "mail", "Mail hesabı oluşturuluyor...", requestId);
     try {
-      const authMode = formAuthMode;
+      const authMode =
+        formProvider === "gmail" && !health?.gmail_oauth_configured ? "password" : formAuthMode;
       const created = await createMailAccount(
         {
           provider: formProvider,
@@ -1788,9 +1789,15 @@ export function App() {
                     <option value="outlook">Outlook / Office 365</option>
                     <option value="custom">Özel IMAP</option>
                   </select>
-                  <select className="filterSelect" value={formAuthMode} onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}>
+                  <select
+                    className="filterSelect"
+                    value={formProvider === "gmail" && !health?.gmail_oauth_configured ? "password" : formAuthMode}
+                    onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}
+                  >
                     <option value="password">Şifre / Uygulama Şifresi</option>
-                    <option value="oauth_gmail">OAuth Refresh Token</option>
+                    {formProvider !== "gmail" || health?.gmail_oauth_configured ? (
+                      <option value="oauth_gmail">OAuth Refresh Token</option>
+                    ) : null}
                   </select>
                   <input className="formInput" placeholder="Hesap adı (örn: Kart Maili)" value={formLabel} onChange={(e) => setFormLabel(e.target.value)} />
                   {formProvider === "custom" && (

@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.12 (2026-03-17)
+
+### Düzeltmeler
+- Gmail + OAuth yokken sadece "Şifre / Uygulama Şifresi" gösteriliyor; OAuth hesabı yanlışlıkla oluşturulmuyor
+- Hesap eklerken (Gmail, OAuth yok) her zaman password modu kullanılıyor
+
+---
+
 ## 1.0.11 (2026-02-21)
 
 ### Düzeltmeler
