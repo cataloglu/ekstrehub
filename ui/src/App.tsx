@@ -200,6 +200,10 @@ export function App() {
       setSyncInfo(`Gmail hesabı eklendi! #${id}`);
       pushLog("info", "mail", `Gmail OAuth tamamlandı, hesap #${id} oluşturuldu`);
       setActiveTab("mail");
+    } else if (oauthResult === "not_configured") {
+      setErrorMessage("Google ile Bağlan şu an kullanılamıyor. Gmail hesabı eklemek için aşağıdan \"Şifre / Uygulama Şifresi\" seçip App Password ile ekleyin.");
+      setActiveTab("mail");
+      pushLog("info", "auth", "Gmail OAuth yapılandırılmamış; App Password ile eklenebilir.");
     } else {
       const reason = params.get("reason") ?? "bilinmeyen hata";
       setErrorMessage(`Gmail OAuth hatası: ${reason}`);
@@ -1763,16 +1767,21 @@ export function App() {
               <section className="section">
                 <h2 className="sectionTitle" style={{ marginBottom: 14 }}>Yeni Mail Hesabı Ekle</h2>
                 <div className="formGrid">
-                  {formProvider === "gmail" && (
+                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
                     <a
                       className="btn btnGoogle"
                       href={`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
                     >
-                      Google ile Bağlan (Gmail OAuth)
+                      Google ile Bağlan (OAuth)
                     </a>
                   )}
-                  {formProvider === "gmail" && (
-                    <div className="formDivider">— ya da manuel ekle —</div>
+                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
+                    <div className="formDivider">— ya da aşağıdan ekle —</div>
+                  )}
+                  {formProvider === "gmail" && !health?.gmail_oauth_configured && (
+                    <p className="muted" style={{ gridColumn: "1 / -1", marginBottom: 4 }}>
+                      Gmail: Google hesabında 2 adımlı doğrulama açıp <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">Uygulama şifresi</a> oluşturun, aşağıya e‑posta ve şifreyi yazıp Hesap Ekle’ye basın.
+                    </p>
                   )}
                   <select className="filterSelect" value={formProvider} onChange={(e) => setFormProvider(e.target.value as "gmail" | "outlook" | "custom")}>
                     <option value="gmail">Gmail</option>

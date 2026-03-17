@@ -733,13 +733,9 @@ async def gmail_oauth_start(request: Request, label: str = "Gmail Hesabı"):
 
     settings = get_settings()
     if not settings.gmail_oauth_client_id or not settings.gmail_oauth_client_secret:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "code": "OAUTH_NOT_CONFIGURED",
-                "message": "Gmail OAuth yapılandırılmamış. Add-on yöneticisi Client ID/Secret veya yerleşik OAuth + proxy ayarlamalı. Alternatif: Gmail için 'Şifre / Uygulama Şifresi' ile App Password kullanın.",
-            },
-        )
+        _, base_path = _oauth_base(request)
+        root = base_path.rstrip("/") or "/"
+        return RedirectResponse(f"{root}?oauth=not_configured")
     our_callback = _oauth_redirect_uri(request)
     if settings.gmail_oauth_redirect_proxy_url:
         redirect_uri = settings.gmail_oauth_redirect_proxy_url.rstrip("/")
