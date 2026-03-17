@@ -178,3 +178,36 @@ def test_mail_ingestion_runs_cursor_pagination(monkeypatch, tmp_path) -> None:
     assert second_page.status_code == 200
     second_payload = second_page.json()
     assert len(second_payload["items"]) == 2
+
+
+def test_delete_mail_account(monkeypatch, tmp_path) -> None:
+    client, SessionLocal = _build_test_client(monkeypatch, tmp_path)
+    with SessionLocal() as session:
+        session.add(
+            MailAccount(
+                provider="gmail",
+                auth_mode="password",
+                account_label="To Delete",
+                imap_host="imap.gmail.com",
+                imap_port=993,
+                imap_user="x@gmail.com",
+                imap_password="x",
+                oauth_refresh_token=None,
+                mailbox="INBOX",
+                unseen_only=True,
+                fetch_limit=20,
+                retry_count=3,
+                retry_backoff_seconds=1.5,
+                is_active=True,
+            )
+        )
+        session.commit()
+        aid = session.query(MailAccount).first().id
+
+    r = client.delete(f"/api/mail-accounts/{aid}", headers=_auth_headers())
+    assert r.status_code == 200
+    assert r.json()["deleted"] is True
+    assert r.json()["id"] == aid
+
+    r2 = client.delete(f"/api/mail-accounts/{aid}", headers=_auth_headers())
+    assert r2.status_code == 404

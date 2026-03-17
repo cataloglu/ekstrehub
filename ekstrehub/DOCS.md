@@ -12,11 +12,12 @@ Kredi kartı ekstrelerini Gmail'den otomatik indirir, AI ile parse eder ve Home 
 
 ## Kurulum Sonrası
 
-1. **Mail hesabı ekle** — Mail & Sync sekmesinden:
+1. **Mail hesabı ekle / sil** — **Mail & Sync** sekmesinde üstten hesabı seç; ayarların altında **Bu mail hesabını sil** ile silebilirsin (onay sorar). Ekstreler silinmez; sadece o hesap bağlantısı kalkar.
+2. **Mail hesabı ekle** — Aynı sekmeden:
    - **Gmail App Password** (önerilen): Yapılandır → "Şifre / Uygulama Şifresi" seç, Gmail'de 2 adımlı doğrulama açıp [App Password](https://myaccount.google.com/apppasswords) oluştur
    - **Gmail OAuth**: Add-on yapılandırmasında Client ID ve Secret girin (aşağıya bakın)
-2. **AI Parser ayarla** — Ayarlar → OpenAI API key gir (opsiyonel)
-3. **Sync et** — İlk mailleri indir
+3. **AI Parser ayarla** — Ayarlar → OpenAI API key gir (opsiyonel)
+4. **Sync et** — İlk mailleri indir
 
 ## Gmail OAuth (Google ile Bağlan)
 
@@ -49,3 +50,9 @@ Detaylı kurulum: [GitHub README](https://github.com/cataloglu/ekstrehub)
 2. **Home Assistant’ta repo listesini yenile** — **Ayarlar** → **Eklentiler** → sağ üst **⋮** → **Depo’ları yenile** (veya **Repositories** → EkstreHub repo’sunun yanında yenile).
 3. **Supervisor’ı yenile** — Bazen **Ayarlar** → **Sistem** → **Yeniden başlat** → sadece **Supervisor’ı yenile** yeterli olur.
 4. **Eklenti mağazasında kontrol et** — EkstreHub’a tıkla; “Güncelle” butonu sadece sürüm numarası (config.yaml’daki `version`) yükseltilip image build edildiyse çıkar.
+
+## Güncelleme / kurulum hatası (An unknown error occurred)
+
+1. **Gerçek hatayı gör** — SSH veya Terminal & SSH eklentisiyle: `ha supervisor logs`. En altta addon/ekstrehub ile ilgili satırlara bak (ör. image pull failed, permission denied).
+2. **Image çekilemiyorsa (401/403 / pull access denied)** — GitHub'daki container image varsayılan olarak **private** olabilir; HA giriş yapmadan çekemez. **Çözüm:** GitHub → Repo cataloglu/ekstrehub → sağda **Packages** (veya github.com/orgs/cataloglu/packages/container/package/ekstrehub) → pakete gir → **Package settings** → **Danger zone** → **Change visibility** → **Public**. Paket public olunca güncelleme kurulur.
+3. **Build yoksa** — GitHub → **Actions** → "Build & Publish Add-on" workflow'unu aç; ilgili commit için build yeşil mi kontrol et. Kırmızıysa hata mesajına göre düzelt.

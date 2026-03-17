@@ -259,6 +259,34 @@ async def patch_mail_account(account_id: int, request: Request) -> dict:
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 
 
+@app.delete("/api/mail-accounts/{account_id}")
+async def delete_mail_account(account_id: int, request: Request) -> dict:
+    """Remove a mail account. Linked ingestion runs / emails keep history (FK set to NULL)."""
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            row = session.get(MailAccount, account_id)
+            if not row:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "not_found", "message": "Mail account not found"},
+                )
+            session.delete(row)
+            session.commit()
+            log_event(
+                request_logger,
+                "mail_account_deleted",
+                category="mail",
+                request_id=getattr(request.state, "request_id", None),
+                account_id=account_id,
+            )
+            return {"deleted": True, "id": account_id}
+    except HTTPException:
+        raise
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
 @app.post("/api/mail-ingestion/sync")
 async def run_mail_ingestion_sync(
     request: Request,

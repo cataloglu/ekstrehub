@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   approveParserChange,
   createMailAccount,
+  deleteMailAccount,
   getAutoSync,
   getParserChanges,
   getHealth,
@@ -68,6 +69,7 @@ export function App() {
   const [selectedMailAccountId, setSelectedMailAccountId] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [isDeletingMailAccount, setIsDeletingMailAccount] = useState(false);
   const [syncInfo, setSyncInfo] = useState<string>("");
   const [editingMailboxId, setEditingMailboxId] = useState<number | null>(null);
   const [editMailboxValue, setEditMailboxValue] = useState("");
@@ -365,6 +367,33 @@ export function App() {
       pushLog("error", "mail", `Mail hesabı oluşturma başarısız: ${message}`, requestId);
     } finally {
       setIsCreatingAccount(false);
+    }
+  }
+
+  async function handleDeleteMailAccount(accountId: number, label: string) {
+    if (
+      !window.confirm(
+        `"${label}" (#${accountId}) hesabını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`
+      )
+    ) {
+      return;
+    }
+    setIsDeletingMailAccount(true);
+    const requestId = nextRequestId("mail-delete");
+    try {
+      await deleteMailAccount(accountId, { requestId });
+      const remaining = mailAccounts.filter((a) => a.id !== accountId);
+      setMailAccounts(remaining);
+      if (selectedMailAccountId === accountId) {
+        setSelectedMailAccountId(remaining[0]?.id ?? null);
+      }
+      setSyncInfo(`Mail hesabı silindi: #${accountId}`);
+      setErrorMessage("");
+      pushLog("info", "mail", `Mail hesabı silindi: #${accountId}`, requestId);
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : "Silme başarısız");
+    } finally {
+      setIsDeletingMailAccount(false);
     }
   }
 
@@ -1717,6 +1746,17 @@ export function App() {
                       <div className="mailAccountSettingsRow">
                         <span className="mailAccountSettingsLabel">Maksimum mail tarama</span>
                         <span className="mailboxCode">{acct.fetch_limit} mail</span>
+                      </div>
+                      <div className="mailAccountSettingsRow" style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border, #333)" }}>
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ color: "#e57373", borderColor: "#5c3333" }}
+                          disabled={isDeletingMailAccount || isSyncing}
+                          onClick={() => handleDeleteMailAccount(acct.id, acct.account_label)}
+                        >
+                          {isDeletingMailAccount ? "Siliniyor…" : "🗑 Bu mail hesabını sil"}
+                        </button>
                       </div>
                     </div>
                   );

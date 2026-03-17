@@ -236,6 +236,16 @@ export async function patchMailAccount(
   return (await response.json()) as MailAccount;
 }
 
+export async function deleteMailAccount(accountId: number, options?: RequestOptions): Promise<void> {
+  const response = await fetch(`api/mail-accounts/${accountId}`, {
+    method: "DELETE",
+    headers: withRequestHeaders({ Accept: "application/json" }, options),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Mail hesabı silinemedi (${response.status})`));
+  }
+}
+
 export async function triggerMailSync(
   mailAccountId: number,
   options?: RequestOptions

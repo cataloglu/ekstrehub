@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.13 (2026-03-17)
+
+### Yenilikler
+- **Mail hesabı silme**: Mail & Sync → hesabı seç → altta **Bu mail hesabını sil** (onay penceresi)
+
+---
+
 ## 1.0.12 (2026-03-17)
 
 ### Düzeltmeler
