@@ -42,6 +42,7 @@ class AppConfig:
     imap_retry_backoff_seconds: float
     gmail_oauth_client_id: str
     gmail_oauth_client_secret: str
+    gmail_oauth_redirect_proxy_url: str  # when set, OAuth uses this as redirect_uri (single URI for all users)
     # LLM parser (optional — leave empty to use regex fallback)
     llm_api_url: str        # e.g. http://localhost:11434/v1 for Ollama
     llm_model: str          # e.g. qwen2.5:7b
@@ -79,8 +80,15 @@ def get_settings() -> AppConfig:
     imap_fetch_limit_raw = os.getenv("IMAP_FETCH_LIMIT", "20").strip()
     imap_retry_count_raw = os.getenv("IMAP_RETRY_COUNT", "3").strip()
     imap_retry_backoff_raw = os.getenv("IMAP_RETRY_BACKOFF_SECONDS", "1.5").strip()
-    gmail_oauth_client_id = os.getenv("GMAIL_OAUTH_CLIENT_ID", "").strip()
-    gmail_oauth_client_secret = os.getenv("GMAIL_OAUTH_CLIENT_SECRET", "").strip()
+    gmail_oauth_client_id = (
+        os.getenv("GMAIL_OAUTH_CLIENT_ID", "").strip()
+        or os.getenv("EKSTREHUB_BUILTIN_GMAIL_CLIENT_ID", "").strip()
+    )
+    gmail_oauth_client_secret = (
+        os.getenv("GMAIL_OAUTH_CLIENT_SECRET", "").strip()
+        or os.getenv("EKSTREHUB_BUILTIN_GMAIL_CLIENT_SECRET", "").strip()
+    )
+    gmail_oauth_redirect_proxy_url = os.getenv("OAUTH_REDIRECT_PROXY_URL", "").strip()
     llm_api_url = os.getenv("LLM_API_URL", "").strip()
     llm_model = os.getenv("LLM_MODEL", "qwen2.5:7b").strip()
     llm_api_key = os.getenv("LLM_API_KEY", "").strip()
@@ -152,6 +160,7 @@ def get_settings() -> AppConfig:
         imap_retry_backoff_seconds=imap_retry_backoff_seconds,
         gmail_oauth_client_id=gmail_oauth_client_id,
         gmail_oauth_client_secret=gmail_oauth_client_secret,
+        gmail_oauth_redirect_proxy_url=gmail_oauth_redirect_proxy_url,
         llm_api_url=llm_api_url,
         llm_model=llm_model,
         llm_api_key=llm_api_key,

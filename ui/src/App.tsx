@@ -1763,7 +1763,7 @@ export function App() {
               <section className="section">
                 <h2 className="sectionTitle" style={{ marginBottom: 14 }}>Yeni Mail Hesabı Ekle</h2>
                 <div className="formGrid">
-                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
+                  {formProvider === "gmail" && (
                     <a
                       className="btn btnGoogle"
                       href={`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
@@ -1771,12 +1771,7 @@ export function App() {
                       Google ile Bağlan (Gmail OAuth)
                     </a>
                   )}
-                  {formProvider === "gmail" && !health?.gmail_oauth_configured && (
-                    <div className="oauthWarning" style={{ gridColumn: "1 / -1", padding: 12, background: "rgba(251,191,36,0.15)", borderRadius: 8, fontSize: 13 }}>
-                      <strong>Gmail OAuth:</strong> Add-on yapılandırmasında Client ID ve Secret girin (Ayarlar → Eklentiler → EkstreHub → Yapılandır). Alternatif: aşağıda &quot;Şifre / Uygulama Şifresi&quot; seçip Gmail App Password kullanın.
-                    </div>
-                  )}
-                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
+                  {formProvider === "gmail" && (
                     <div className="formDivider">— ya da manuel ekle —</div>
                   )}
                   <select className="filterSelect" value={formProvider} onChange={(e) => setFormProvider(e.target.value as "gmail" | "outlook" | "custom")}>

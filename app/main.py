@@ -728,20 +728,32 @@ async def gmail_oauth_redirect_uri_info(request: Request):
 
 @app.get("/api/oauth/gmail/start")
 async def gmail_oauth_start(request: Request, label: str = "Gmail Hesabı"):
+    import base64
+    from urllib.parse import quote
+
     settings = get_settings()
-    if not settings.gmail_oauth_client_id:
+    if not settings.gmail_oauth_client_id or not settings.gmail_oauth_client_secret:
         raise HTTPException(
             status_code=503,
             detail={
                 "code": "OAUTH_NOT_CONFIGURED",
-                "message": "Gmail OAuth kullanmak için add-on yapılandırmasında Client ID ve Secret girin. Ayarlar → Eklentiler → EkstreHub → Yapılandır. Alternatif: Gmail için 'Şifre / Uygulama Şifresi' ile App Password kullanın.",
+                "message": "Gmail OAuth yapılandırılmamış. Add-on yöneticisi Client ID/Secret veya yerleşik OAuth + proxy ayarlamalı. Alternatif: Gmail için 'Şifre / Uygulama Şifresi' ile App Password kullanın.",
             },
         )
-    redirect_uri = _oauth_redirect_uri(request)
+    our_callback = _oauth_redirect_uri(request)
+    if settings.gmail_oauth_redirect_proxy_url:
+        redirect_uri = settings.gmail_oauth_redirect_proxy_url.rstrip("/")
+        if "?" in redirect_uri:
+            redirect_uri = redirect_uri.split("?")[0]
+        callback_with_label = f"{our_callback}?label={quote(label)}"
+        state = base64.urlsafe_b64encode(callback_with_label.encode("utf-8")).decode("ascii")
+    else:
+        redirect_uri = our_callback
+        state = label
     url = build_auth_url(
         client_id=settings.gmail_oauth_client_id,
         redirect_uri=redirect_uri,
-        state=label,
+        state=state,
     )
     return RedirectResponse(url)
 
@@ -752,7 +764,9 @@ async def gmail_oauth_callback(
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
+    label: str | None = None,
 ):
+    import base64
     from urllib.parse import quote
 
     _, base_path = _oauth_base(request)
@@ -767,7 +781,26 @@ async def gmail_oauth_callback(
         raise HTTPException(status_code=400, detail={"code": "OAUTH_NO_CODE", "message": "Kod eksik."})
 
     settings = get_settings()
-    redirect_uri = _oauth_redirect_uri(request)
+    if settings.gmail_oauth_redirect_proxy_url:
+        redirect_uri = settings.gmail_oauth_redirect_proxy_url.rstrip("/").split("?")[0]
+    else:
+        redirect_uri = _oauth_redirect_uri(request)
+    account_label = label or state or "Gmail Hesabı"
+    if state and not label and settings.gmail_oauth_redirect_proxy_url:
+        try:
+            pad = 4 - len(state) % 4
+            if pad != 4:
+                state_padded = state + ("=" * pad)
+            else:
+                state_padded = state
+            decoded = base64.urlsafe_b64decode(state_padded).decode("utf-8")
+            if "?label=" in decoded:
+                from urllib.parse import parse_qs
+                parsed = parse_qs(decoded.split("?", 1)[1])
+                if parsed.get("label"):
+                    account_label = parsed["label"][0]
+        except Exception:
+            pass
     try:
         tokens = exchange_code_for_tokens(
             client_id=settings.gmail_oauth_client_id,
@@ -783,14 +816,13 @@ async def gmail_oauth_callback(
     if not refresh_token:
         return RedirectResponse(f"{root}?oauth=error&reason=no_refresh_token")
 
-    label = state or "Gmail Hesabı"
     session_factory = get_session_factory()
     try:
         with session_factory() as session:
             account = MailAccount(
                 provider="gmail",
                 auth_mode="oauth_gmail",
-                account_label=label,
+                account_label=account_label,
                 imap_host="imap.gmail.com",
                 imap_port=993,
                 imap_user=label,

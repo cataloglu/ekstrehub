@@ -1,5 +1,14 @@
 # EkstreHub Changelog
 
+## 1.0.10 (2026-02-21)
+
+### Yenilikler
+- **Gmail OAuth — kullanıcı Client ID/Secret girmek zorunda değil**: Add-on yöneticisi tek OAuth client + redirect proxy ayarlarsa kullanıcılar sadece "Google ile Bağlan"a tıklar
+- Yerleşik client desteği: `ekstrehub_builtin_gmail_client_id` / `ekstrehub_builtin_gmail_client_secret` ve `oauth_redirect_proxy_url` ile tek tık OAuth
+- OAuth redirect proxy script'i: `scripts/oauth_redirect_proxy.py` (tek sabit redirect URI için)
+
+---
+
 ## 1.0.9 (2026-03-21)
 
 ### Düzeltmeler

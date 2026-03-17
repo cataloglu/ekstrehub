@@ -18,12 +18,22 @@ export LOG_LEVEL=$(bashio::config 'log_level' 'info')
 # /data survives add-on updates; database is NEVER wiped on update.
 export DB_URL="sqlite:////data/ekstrehub.db"
 
-# ── Gmail OAuth (optional) ────────────────────────────────────
+# ── Gmail OAuth (optional; yönetici bir kez ayarlarsa kullanıcı Client ID/Secret girmek zorunda kalmaz) ──
 if bashio::config.has_value 'gmail_oauth_client_id'; then
     export GMAIL_OAUTH_CLIENT_ID="$(bashio::config 'gmail_oauth_client_id')"
 fi
 if bashio::config.has_value 'gmail_oauth_client_secret'; then
     export GMAIL_OAUTH_CLIENT_SECRET="$(bashio::config 'gmail_oauth_client_secret')"
+fi
+if bashio::config.has_value 'oauth_redirect_proxy_url'; then
+    export OAUTH_REDIRECT_PROXY_URL="$(bashio::config 'oauth_redirect_proxy_url')"
+fi
+# Yerleşik OAuth client (add-on yöneticisi tek proje kullanıyorsa bunları set eder; kullanıcı hiçbir şey girmek zorunda kalmaz)
+if bashio::config.has_value 'ekstrehub_builtin_gmail_client_id'; then
+    export EKSTREHUB_BUILTIN_GMAIL_CLIENT_ID="$(bashio::config 'ekstrehub_builtin_gmail_client_id')"
+fi
+if bashio::config.has_value 'ekstrehub_builtin_gmail_client_secret'; then
+    export EKSTREHUB_BUILTIN_GMAIL_CLIENT_SECRET="$(bashio::config 'ekstrehub_builtin_gmail_client_secret')"
 fi
 
 # ── Mail accounts ─────────────────────────────────────────────
