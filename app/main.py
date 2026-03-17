@@ -295,7 +295,7 @@ async def run_mail_ingestion_sync(
             status_code=400,
             detail={
                 "code": "GMAIL_OAUTH_REFRESH_FAILED",
-                "message": "Failed to refresh Gmail OAuth access token.",
+                "message": "Gmail OAuth yenilenemedi. Bu hesabı Mail & Sync’te silin, ardından yeniden ekleyin: ‘Google ile Bağlan’ veya ‘Şifre / Uygulama Şifresi’ ile.",
                 "details": {"reason": str(exc)},
             },
         ) from exc
@@ -322,12 +322,13 @@ async def run_mail_ingestion_sync(
                 )
             )
             session.commit()
+        reason = str(exc)
         raise HTTPException(
             status_code=500,
             detail={
                 "code": "INGESTION_SYNC_FAILED",
-                "message": "Mail ingestion sync failed.",
-                "details": {"reason": str(exc)},
+                "message": "Mail bağlantısı veya sync başarısız.",
+                "details": {"reason": reason},
             },
         ) from exc
     session_factory = get_session_factory()

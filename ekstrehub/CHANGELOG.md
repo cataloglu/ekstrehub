@@ -1,5 +1,14 @@
 # EkstreHub Changelog
 
+## 1.0.11 (2026-02-21)
+
+### Düzeltmeler
+- **Gmail OAuth refresh hatası**: Token süresi dolunca net mesaj + "Hesabı silip yeniden ekleyin" (App Password veya Google ile Bağlan)
+- **Hata mesajları**: API `detail` yanıtı artık UI’da gösteriliyor; sync/IMAP hataları sebebiyle birlikte gösteriliyor
+- **Gmail App Password**: Şifre/e-posta trim, uygulama şifresindeki boşluklar kaldırılıyor; IMAP’ı açma linki eklendi
+
+---
+
 ## 1.0.10 (2026-02-21)
 
 ### Yenilikler

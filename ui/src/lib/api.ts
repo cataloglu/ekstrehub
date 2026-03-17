@@ -137,14 +137,25 @@ function withRequestHeaders(headers: HeadersInit = {}, options?: RequestOptions)
 
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
-    const payload = (await response.json()) as { error?: { code?: string; message?: string } };
-    const code = payload.error?.code;
-    const message = payload.error?.message;
+    const payload = (await response.json()) as {
+      error?: { code?: string; message?: string; details?: { reason?: string } };
+      detail?: { code?: string; message?: string; details?: { reason?: string } };
+    };
+    const err = payload.error ?? payload.detail;
+    const code = err?.code;
+    const message = err?.message;
+    const reason = err?.details?.reason;
+    if (reason && message) {
+      return `${message} ${reason}`.trim();
+    }
     if (code && message) {
       return `${code}: ${message}`;
     }
     if (message) {
       return message;
+    }
+    if (reason) {
+      return reason;
     }
   } catch {
     // keep fallback when non-json error body

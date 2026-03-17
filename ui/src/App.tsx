@@ -333,7 +333,7 @@ export function App() {
         {
           provider: formProvider,
           auth_mode: authMode,
-          account_label: formLabel,
+          account_label: formLabel.trim() || formLabel,
           imap_host:
             formProvider === "gmail"
               ? "imap.gmail.com"
@@ -341,8 +341,8 @@ export function App() {
               ? "outlook.office365.com"
               : formImapHost.trim(),
           imap_port: 993,
-          imap_user: formImapUser,
-          imap_password: authMode === "password" ? formImapPassword : "",
+          imap_user: formImapUser.trim(),
+          imap_password: authMode === "password" ? formImapPassword.trim().replace(/\s/g, "") : "",
           oauth_refresh_token: authMode === "oauth_gmail" ? formRefreshToken : null,
           mailbox: formMailbox,
           unseen_only: true,
@@ -1780,7 +1780,7 @@ export function App() {
                   )}
                   {formProvider === "gmail" && !health?.gmail_oauth_configured && (
                     <p className="muted" style={{ gridColumn: "1 / -1", marginBottom: 4 }}>
-                      Gmail: Google hesabında 2 adımlı doğrulama açıp <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">Uygulama şifresi</a> oluşturun, aşağıya e‑posta ve şifreyi yazıp Hesap Ekle’ye basın.
+                      Gmail: 2 adımlı doğrulama açıp <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">Uygulama şifresi</a> oluşturun. Gmail’de <a href="https://mail.google.com/mail/u/0/#settings/fwdandpop" target="_blank" rel="noopener noreferrer">IMAP’ı açın</a> (Ayarlar → Tüm ayarlar → İletme ve POP/IMAP → IMAP etkin). E‑posta ve uygulama şifresini (boşluksuz) yazıp Hesap Ekle’ye basın.
                     </p>
                   )}
                   <select className="filterSelect" value={formProvider} onChange={(e) => setFormProvider(e.target.value as "gmail" | "outlook" | "custom")}>
