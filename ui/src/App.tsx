@@ -1865,7 +1865,14 @@ export function App() {
                   <button
                     className="btn btnPrimary"
                     onClick={handleCreateMailAccount}
-                    disabled={isCreatingAccount || !formImapUser || !formLabel || (formProvider === "custom" && !formImapHost.trim())}
+                    disabled={
+                      isCreatingAccount ||
+                      !formLabel.trim() ||
+                      !formImapUser.trim() ||
+                      (formProvider === "custom" && !formImapHost.trim()) ||
+                      (((formProvider === "gmail" && !health?.gmail_oauth_configured) || formAuthMode === "password") &&
+                        !formImapPassword.trim())
+                    }
                   >
                     {isCreatingAccount ? "Oluşturuluyor..." : "Hesap Ekle"}
                   </button>

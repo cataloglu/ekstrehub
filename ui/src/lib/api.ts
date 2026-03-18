@@ -135,13 +135,35 @@ function withRequestHeaders(headers: HeadersInit = {}, options?: RequestOptions)
   };
 }
 
+const VALIDATION_FIELD_NAMES: Record<string, string> = {
+  account_label: "Hesap adı",
+  imap_user: "E-posta adresi",
+  imap_password: "Şifre / Uygulama şifresi",
+  imap_host: "IMAP sunucusu",
+  mailbox: "Posta kutusu",
+};
+
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {
   try {
     const payload = (await response.json()) as {
       error?: { code?: string; message?: string; details?: { reason?: string } };
-      detail?: { code?: string; message?: string; details?: { reason?: string } };
+      detail?:
+        | { code?: string; message?: string; details?: { reason?: string } }
+        | Array<{ loc?: (string | number)[]; msg?: string }>;
     };
-    const err = payload.error ?? payload.detail;
+    const rawDetail = payload.detail;
+    if (Array.isArray(rawDetail) && rawDetail.length > 0) {
+      const parts = rawDetail.slice(0, 3).map((e) => {
+        const loc = e.loc;
+        const field = Array.isArray(loc) && typeof loc[loc.length - 1] === "string"
+          ? VALIDATION_FIELD_NAMES[loc[loc.length - 1] as string] ?? loc[loc.length - 1]
+          : null;
+        const msg = e.msg ?? "";
+        return field ? `${field}: ${msg}` : msg;
+      });
+      return parts.join(". ") || fallback;
+    }
+    const err = payload.error ?? (typeof rawDetail === "object" && rawDetail !== null && !Array.isArray(rawDetail) ? rawDetail : null);
     const code = err?.code;
     const message = err?.message;
     const reason = err?.details?.reason;

@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.14 (2026-03-17)
+
+### Düzeltmeler
+- **422 hatası**: Hesap eklerken doğrulama hatası (eksik alan) artık anlamlı gösteriliyor (örn. "E-posta adresi: Field required")
+- **Hesap Ekle** butonu: E-posta veya şifre boşken devre dışı (Gmail App Password ile)
+
+---
+
 ## 1.0.13 (2026-03-17)
 
 ### Yenilikler
