@@ -112,6 +112,12 @@ export function App() {
   const [isDeletingStmts, setIsDeletingStmts] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ ids: number[]; label: string } | null>(null);
 
+  /** Gmail + OAuth yokken her zaman şifre modu; yoksa form OAuth textarea gösterip API'ye boş imap_password giderdi (422). */
+  const resolvedMailAuthMode = useMemo<"password" | "oauth_gmail">(
+    () => (formProvider === "gmail" && !health?.gmail_oauth_configured ? "password" : formAuthMode),
+    [formProvider, health?.gmail_oauth_configured, formAuthMode],
+  );
+
   function nextRequestId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
   }
@@ -330,8 +336,7 @@ export function App() {
     const requestId = nextRequestId("mail-create");
     pushLog("info", "mail", "Mail hesabı oluşturuluyor...", requestId);
     try {
-      const authMode =
-        formProvider === "gmail" && !health?.gmail_oauth_configured ? "password" : formAuthMode;
+      const authMode = resolvedMailAuthMode;
       const created = await createMailAccount(
         {
           provider: formProvider,
@@ -1831,7 +1836,7 @@ export function App() {
                   </select>
                   <select
                     className="filterSelect"
-                    value={formProvider === "gmail" && !health?.gmail_oauth_configured ? "password" : formAuthMode}
+                    value={resolvedMailAuthMode}
                     onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}
                   >
                     <option value="password">Şifre / Uygulama Şifresi</option>
@@ -1843,8 +1848,13 @@ export function App() {
                   {formProvider === "custom" && (
                     <input className="formInput" placeholder="IMAP host (örn: imap.catal.net)" value={formImapHost} onChange={(e) => setFormImapHost(e.target.value)} />
                   )}
-                  <input className="formInput" placeholder="Email adresi" value={formImapUser} onChange={(e) => setFormImapUser(e.target.value)} />
-                  {formProvider === "gmail" || formAuthMode === "oauth_gmail" ? (
+                  <input
+                    className="formInput"
+                    placeholder={formProvider === "gmail" ? "Gmail adresi (tam e-posta)" : "E-posta adresi"}
+                    value={formImapUser}
+                    onChange={(e) => setFormImapUser(e.target.value)}
+                  />
+                  {resolvedMailAuthMode === "oauth_gmail" ? (
                     <textarea
                       className="formInput"
                       placeholder="OAuth refresh token"
@@ -1856,7 +1866,11 @@ export function App() {
                     <input
                       className="formInput"
                       type="password"
-                      placeholder="Şifre / Uygulama şifresi"
+                      placeholder={
+                        formProvider === "gmail"
+                          ? "Google uygulama şifresi (16 karakter, boşluksuz)"
+                          : "Şifre / Uygulama şifresi"
+                      }
                       value={formImapPassword}
                       onChange={(e) => setFormImapPassword(e.target.value)}
                     />
@@ -1870,8 +1884,8 @@ export function App() {
                       !formLabel.trim() ||
                       !formImapUser.trim() ||
                       (formProvider === "custom" && !formImapHost.trim()) ||
-                      (((formProvider === "gmail" && !health?.gmail_oauth_configured) || formAuthMode === "password") &&
-                        !formImapPassword.trim())
+                      (resolvedMailAuthMode === "password" && !formImapPassword.trim()) ||
+                      (resolvedMailAuthMode === "oauth_gmail" && !formRefreshToken.trim())
                     }
                   >
                     {isCreatingAccount ? "Oluşturuluyor..." : "Hesap Ekle"}

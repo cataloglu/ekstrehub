@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.15 (2026-03-17)
+
+### Kritik düzeltme
+- **Gmail + App Password**: Gmail seçiliyken form yanlışlıkla OAuth (textarea) gösteriyordu; API şifreyi `imap_password` alanından bekliyordu. Kullanıcı uygulama şifresini textarea’ya yazınca 422 oluşuyordu. Artık şifre modunda doğru alan (tek satır şifre) gösteriliyor.
+
+---
+
 ## 1.0.14 (2026-03-17)
 
 ### Düzeltmeler
