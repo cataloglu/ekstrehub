@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.16 (2026-03-17)
+
+### UX
+- **Gmail**: Varsayılan akış Mail / Outlook gibi — **Gmail’e bağlan (tarayıcıda aç)** ile Google oturum sayfası; uygulama şifresi gizli “OAuth çalışmıyorsa…” altında.
+- OAuth ayarsız geri dönüşte manuel IMAP bölümü otomatik açılır.
+
+---
+
 ## 1.0.15 (2026-03-17)
 
 ### Kritik düzeltme

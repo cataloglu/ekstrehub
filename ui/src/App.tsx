@@ -90,6 +90,8 @@ export function App() {
   const [formRefreshToken, setFormRefreshToken] = useState("");
   const [formMailbox, setFormMailbox] = useState("INBOX");
   const [formImapHost, setFormImapHost] = useState("");
+  /** Gmail'de Mail.app gibi önce OAuth; bunu açınca IMAP + uygulama şifresi formu görünür. */
+  const [gmailImapManual, setGmailImapManual] = useState(false);
   const [statements, setStatements] = useState<StatementItem[]>([]);
   const [expandedStatementId, setExpandedStatementId] = useState<number | null>(null);
   const [stmtSearch, setStmtSearch] = useState("");
@@ -112,11 +114,12 @@ export function App() {
   const [isDeletingStmts, setIsDeletingStmts] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ ids: number[]; label: string } | null>(null);
 
-  /** Gmail + OAuth yokken her zaman şifre modu; yoksa form OAuth textarea gösterip API'ye boş imap_password giderdi (422). */
-  const resolvedMailAuthMode = useMemo<"password" | "oauth_gmail">(
-    () => (formProvider === "gmail" && !health?.gmail_oauth_configured ? "password" : formAuthMode),
-    [formProvider, health?.gmail_oauth_configured, formAuthMode],
-  );
+  /** Gmail + manuel IMAP: OAuth yoksa şifre; Outlook/Özel: formAuthMode. */
+  const resolvedMailAuthMode = useMemo<"password" | "oauth_gmail">(() => {
+    if (formProvider !== "gmail") return formAuthMode;
+    if (!gmailImapManual) return "password";
+    return !health?.gmail_oauth_configured ? "password" : formAuthMode;
+  }, [formProvider, gmailImapManual, health?.gmail_oauth_configured, formAuthMode]);
 
   function nextRequestId(prefix: string): string {
     return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -209,9 +212,12 @@ export function App() {
       pushLog("info", "mail", `Gmail OAuth tamamlandı, hesap #${id} oluşturuldu`);
       setActiveTab("mail");
     } else if (oauthResult === "not_configured") {
-      setErrorMessage("Google ile Bağlan şu an kullanılamıyor. Gmail hesabı eklemek için aşağıdan \"Şifre / Uygulama Şifresi\" seçip App Password ile ekleyin.");
+      setErrorMessage(
+        "Bu sunucuda Gmail tarayıcı girişi (OAuth) henüz ayarlanmamış. Aşağıda “uygulama şifresi ile elle ekle”yi açıp IMAP ile ekleyebilirsin; kalıcı çözüm için add-on’da OAuth + isteğe bağlı proxy tanımlanmalı."
+      );
+      setGmailImapManual(true);
       setActiveTab("mail");
-      pushLog("info", "auth", "Gmail OAuth yapılandırılmamış; App Password ile eklenebilir.");
+      pushLog("info", "auth", "Gmail OAuth yapılandırılmamış; manuel IMAP açıldı.");
     } else {
       const reason = params.get("reason") ?? "bilinmeyen hata";
       setErrorMessage(`Gmail OAuth hatası: ${reason}`);
@@ -332,6 +338,10 @@ export function App() {
   }
 
   async function handleCreateMailAccount() {
+    if (formProvider === "gmail" && !gmailImapManual) {
+      setErrorMessage("Gmail için önce “Gmail’e bağlan (tarayıcıda aç)” kullan veya “uygulama şifresi ile elle ekle”yi aç.");
+      return;
+    }
     setIsCreatingAccount(true);
     const requestId = nextRequestId("mail-create");
     pushLog("info", "mail", "Mail hesabı oluşturuluyor...", requestId);
@@ -1813,83 +1823,123 @@ export function App() {
               <section className="section">
                 <h2 className="sectionTitle" style={{ marginBottom: 14 }}>Yeni Mail Hesabı Ekle</h2>
                 <div className="formGrid">
-                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
-                    <a
-                      className="btn btnGoogle"
-                      href={`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
-                    >
-                      Google ile Bağlan (OAuth)
-                    </a>
-                  )}
-                  {formProvider === "gmail" && health?.gmail_oauth_configured && (
-                    <div className="formDivider">— ya da aşağıdan ekle —</div>
-                  )}
-                  {formProvider === "gmail" && !health?.gmail_oauth_configured && (
-                    <p className="muted" style={{ gridColumn: "1 / -1", marginBottom: 4 }}>
-                      Gmail: 2 adımlı doğrulama açıp <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">Uygulama şifresi</a> oluşturun. Gmail’de <a href="https://mail.google.com/mail/u/0/#settings/fwdandpop" target="_blank" rel="noopener noreferrer">IMAP’ı açın</a> (Ayarlar → Tüm ayarlar → İletme ve POP/IMAP → IMAP etkin). E‑posta ve uygulama şifresini (boşluksuz) yazıp Hesap Ekle’ye basın.
-                    </p>
-                  )}
-                  <select className="filterSelect" value={formProvider} onChange={(e) => setFormProvider(e.target.value as "gmail" | "outlook" | "custom")}>
+                  <select
+                    className="filterSelect"
+                    value={formProvider}
+                    onChange={(e) => {
+                      const v = e.target.value as "gmail" | "outlook" | "custom";
+                      setFormProvider(v);
+                      if (v !== "gmail") setGmailImapManual(false);
+                    }}
+                  >
                     <option value="gmail">Gmail</option>
                     <option value="outlook">Outlook / Office 365</option>
                     <option value="custom">Özel IMAP</option>
                   </select>
-                  <select
-                    className="filterSelect"
-                    value={resolvedMailAuthMode}
-                    onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}
-                  >
-                    <option value="password">Şifre / Uygulama Şifresi</option>
-                    {formProvider !== "gmail" || health?.gmail_oauth_configured ? (
-                      <option value="oauth_gmail">OAuth Refresh Token</option>
-                    ) : null}
-                  </select>
+
                   <input className="formInput" placeholder="Hesap adı (örn: Kart Maili)" value={formLabel} onChange={(e) => setFormLabel(e.target.value)} />
-                  {formProvider === "custom" && (
-                    <input className="formInput" placeholder="IMAP host (örn: imap.catal.net)" value={formImapHost} onChange={(e) => setFormImapHost(e.target.value)} />
+
+                  {formProvider === "gmail" && (
+                    <>
+                      <p className="muted" style={{ gridColumn: "1 / -1", marginBottom: 0 }}>
+                        iPhone / Mac <strong>Mail</strong> veya Outlook’taki gibi: Google’ın kendi sayfasında oturum açarsın; EkstreHub ana şifreni tutmaz, sadece Google izin verir.
+                      </p>
+                      <a
+                        className="btn btnGoogle"
+                        href={`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
+                      >
+                        Gmail’e bağlan (tarayıcıda aç)
+                      </a>
+                      {!health?.gmail_oauth_configured && (
+                        <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.88rem" }}>
+                          Add-on’da henüz Google girişi ayarlı değilse yukarıdaki bağlantı seni geri yönlendirir — o zaman yönetici OAuth kurmalı veya aşağıdaki manuel yolu kullan.
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        className="btn"
+                        style={{ fontSize: "0.85rem" }}
+                        onClick={() => setGmailImapManual((v) => !v)}
+                      >
+                        {gmailImapManual ? "▼ Manuel IMAP’i gizle" : "▶ OAuth çalışmıyorsa: uygulama şifresi ile elle ekle"}
+                      </button>
+                    </>
                   )}
-                  <input
-                    className="formInput"
-                    placeholder={formProvider === "gmail" ? "Gmail adresi (tam e-posta)" : "E-posta adresi"}
-                    value={formImapUser}
-                    onChange={(e) => setFormImapUser(e.target.value)}
-                  />
-                  {resolvedMailAuthMode === "oauth_gmail" ? (
-                    <textarea
-                      className="formInput"
-                      placeholder="OAuth refresh token"
-                      value={formRefreshToken}
-                      onChange={(e) => setFormRefreshToken(e.target.value)}
-                      style={{ minHeight: 72, resize: "vertical" }}
-                    />
-                  ) : (
-                    <input
-                      className="formInput"
-                      type="password"
-                      placeholder={
-                        formProvider === "gmail"
-                          ? "Google uygulama şifresi (16 karakter, boşluksuz)"
-                          : "Şifre / Uygulama şifresi"
-                      }
-                      value={formImapPassword}
-                      onChange={(e) => setFormImapPassword(e.target.value)}
-                    />
+
+                  {(formProvider !== "gmail" || gmailImapManual) && (
+                    <>
+                      {formProvider !== "gmail" && (
+                        <select
+                          className="filterSelect"
+                          value={resolvedMailAuthMode}
+                          onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}
+                        >
+                          <option value="password">Şifre / Uygulama şifresi</option>
+                          <option value="oauth_gmail">OAuth refresh token (gelişmiş)</option>
+                        </select>
+                      )}
+                      {formProvider === "gmail" && gmailImapManual && health?.gmail_oauth_configured && (
+                        <select
+                          className="filterSelect"
+                          value={formAuthMode}
+                          onChange={(e) => setFormAuthMode(e.target.value as "password" | "oauth_gmail")}
+                        >
+                          <option value="password">Uygulama şifresi (IMAP)</option>
+                          <option value="oauth_gmail">OAuth refresh token</option>
+                        </select>
+                      )}
+                      {formProvider === "gmail" && gmailImapManual && (
+                        <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.88rem" }}>
+                          Google’da <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">uygulama şifresi</a> ve <a href="https://mail.google.com/mail/u/0/#settings/fwdandpop" target="_blank" rel="noopener noreferrer">IMAP açık</a> olmalı.
+                        </p>
+                      )}
+                      {formProvider === "custom" && (
+                        <input className="formInput" placeholder="IMAP host (örn: imap.catal.net)" value={formImapHost} onChange={(e) => setFormImapHost(e.target.value)} />
+                      )}
+                      <input
+                        className="formInput"
+                        placeholder={formProvider === "gmail" ? "Gmail adresin (tam e-posta)" : "E-posta adresi"}
+                        value={formImapUser}
+                        onChange={(e) => setFormImapUser(e.target.value)}
+                      />
+                      {resolvedMailAuthMode === "oauth_gmail" ? (
+                        <textarea
+                          className="formInput"
+                          placeholder="OAuth refresh token"
+                          value={formRefreshToken}
+                          onChange={(e) => setFormRefreshToken(e.target.value)}
+                          style={{ minHeight: 72, resize: "vertical" }}
+                        />
+                      ) : (
+                        <input
+                          className="formInput"
+                          type="password"
+                          placeholder={
+                            formProvider === "gmail"
+                              ? "Google uygulama şifresi (16 karakter)"
+                              : "Şifre / Uygulama şifresi"
+                          }
+                          value={formImapPassword}
+                          onChange={(e) => setFormImapPassword(e.target.value)}
+                        />
+                      )}
+                      <input className="formInput" placeholder="Mailbox (varsayılan: INBOX)" value={formMailbox} onChange={(e) => setFormMailbox(e.target.value)} />
+                      <button
+                        className="btn btnPrimary"
+                        onClick={handleCreateMailAccount}
+                        disabled={
+                          isCreatingAccount ||
+                          !formLabel.trim() ||
+                          !formImapUser.trim() ||
+                          (formProvider === "custom" && !formImapHost.trim()) ||
+                          (resolvedMailAuthMode === "password" && !formImapPassword.trim()) ||
+                          (resolvedMailAuthMode === "oauth_gmail" && !formRefreshToken.trim())
+                        }
+                      >
+                        {isCreatingAccount ? "Oluşturuluyor..." : "Hesap Ekle"}
+                      </button>
+                    </>
                   )}
-                  <input className="formInput" placeholder="Mailbox (varsayılan: INBOX)" value={formMailbox} onChange={(e) => setFormMailbox(e.target.value)} />
-                  <button
-                    className="btn btnPrimary"
-                    onClick={handleCreateMailAccount}
-                    disabled={
-                      isCreatingAccount ||
-                      !formLabel.trim() ||
-                      !formImapUser.trim() ||
-                      (formProvider === "custom" && !formImapHost.trim()) ||
-                      (resolvedMailAuthMode === "password" && !formImapPassword.trim()) ||
-                      (resolvedMailAuthMode === "oauth_gmail" && !formRefreshToken.trim())
-                    }
-                  >
-                    {isCreatingAccount ? "Oluşturuluyor..." : "Hesap Ekle"}
-                  </button>
                 </div>
               </section>
             </>
