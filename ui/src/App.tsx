@@ -1850,8 +1850,12 @@ export function App() {
                   {formProvider === "gmail" && (
                     <>
                       <p className="muted" style={{ gridColumn: "1 / -1", marginBottom: 0 }}>
-                        Google’da hesap seçme ekranı <code>accounts.google.com</code> üzerinden açılır (EkstreHub içinde
-                        çizilmez). Bunun için add-on’da OAuth istemcisi tanımlı olmalı.
+                        <strong>Neden Mail uygulaması anahtar sormuyor?</strong> Apple, Google ile kayıtlı kendi OAuth
+                        uygulamasını iPhone/Mac’e gömüyor; sen sadece hesabını seçiyorsun. EkstreHub küçük bir üçüncü
+                        parti uygulama — Google aynı güvenliği ister: <em>bir kez</em> (ev sunucunda) Client ID/Secret
+                        tanımlanır; sonra bu ekrandan kimse anahtar girmez, tıpkı Mail’deki gibi sadece Google hesabını
+                        seçersin. Anahtar istemiyorsan: aşağıdan <strong>uygulama şifresi</strong> ile IMAP kullan (Google
+                        Cloud gerekmez).
                       </p>
                       {health && !health.gmail_oauth_configured ? (
                         <p
