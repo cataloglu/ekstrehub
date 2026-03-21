@@ -1,5 +1,11 @@
 # Mail hesabı ekleme — bilinen sorunlar ve denetim listesi
 
+## Gmail OAuth 404 (1.0.17)
+
+- **Semptom:** “Gmail’e bağlan” tıklanınca `404: Not Found` (genelde HA Ingress altında).
+- **Neden:** Göreli `api/oauth/gmail/start` linki `<base href>` ile yanlış host/path’e çözülüyordu.
+- **Çözüm:** Link `apiUrlPath()` ile mevcut sayfa path’ine göre mutlak URL’e çevrildi.
+
 ## Kritik UI hatası (1.0.15 ile düzeltildi)
 
 - **Semptom:** Gmail + uygulama şifresi kullanırken “Create failed 422” veya `imap_password` doğrulama hatası.
