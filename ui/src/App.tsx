@@ -58,6 +58,17 @@ const NAV_ITEMS: { id: AppTab; icon: string; label: string }[] = [
   { id: "settings", icon: "◈", label: "Ayarlar" },
 ];
 
+function formatReparseFetchError(e: unknown): string {
+  const s = e instanceof Error ? e.message : String(e);
+  if (/Load failed|Failed to fetch|NetworkError|aborted/i.test(s)) {
+    return (
+      "Bağlantı kesildi veya zaman aşımı. Home Assistant tek uzun isteği kesebilir; "
+      + "ekstreler artık tek tek işlenir. AI Parser’da «Zaman aşımı (sn)» değerini 180–300 yapıp Kaydet."
+    );
+  }
+  return s;
+}
+
 export function App() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
@@ -2462,6 +2473,7 @@ export function App() {
                       <div className="llmInfoBox" style={{ marginTop: 16 }}>
                         <strong>AI’yi sonradan açtıysan:</strong> Eski ekstreler otomatik yeniden işlenmez.
                         Mailden PDF tekrar alınır ve güncel LLM ayarlarıyla parse edilir (IMAP gerekir).
+                        Her ekstre <strong>ayrı istekte</strong> işlenir (proxy zaman aşımı / «Load failed» önlenir).
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
                           <button
                             type="button"
@@ -2489,18 +2501,37 @@ export function App() {
                                 };
                                 if (llmForm!.api_key) patch.llm_api_key = llmForm!.api_key;
                                 await patchLlmSettings(patch);
-                                const r = await reparseStatements("empty");
-                                const ok = r.succeeded ?? 0;
-                                const fail = r.failed ?? 0;
-                                setReparseSummary(
-                                  r.message
-                                    ? r.message
-                                    : `Bitti: ${ok} başarılı, ${fail} hata / toplam ${r.processed ?? 0} deneme.`,
-                                );
+                                const list = await getStatements({ limit: 200 });
+                                const ids = list.items
+                                  .filter((it) =>
+                                    it.transaction_count === 0
+                                    || (it.parse_notes || []).some((n) => /llm|no_transaction|required/i.test(n)),
+                                  )
+                                  .map((it) => it.id);
+                                if (ids.length === 0) {
+                                  setReparseSummary("Yeniden işlenecek boş ekstre bulunamadı.");
+                                  await reloadCoreData();
+                                  return;
+                                }
+                                let ok = 0;
+                                let fail = 0;
+                                for (let i = 0; i < ids.length; i++) {
+                                  const id = ids[i];
+                                  setReparseSummary(`İşleniyor ${i + 1}/${ids.length} (ekstre #${id})…`);
+                                  try {
+                                    const r = await reparseStatements("selected", [id]);
+                                    const row = r.results?.[0];
+                                    if (row?.ok) ok += 1;
+                                    else fail += 1;
+                                  } catch {
+                                    fail += 1;
+                                  }
+                                }
+                                setReparseSummary(`Bitti: ${ok} başarılı, ${fail} sorunlu / ${ids.length} ekstre.`);
                                 await reloadCoreData();
                                 setSyncInfo("Ekstreler yeniden parse edildi; Özet ve Ekstreler sekmesine bak.");
                               } catch (e) {
-                                setErrorMessage(String(e));
+                                setErrorMessage(formatReparseFetchError(e));
                               } finally {
                                 setIsReparsingStatements(false);
                               }
@@ -2516,7 +2547,7 @@ export function App() {
                               || !(llmForm?.api_url?.trim() || llmSettings?.llm_api_url?.trim())
                             }
                             onClick={async () => {
-                              if (!window.confirm("Tüm PDF ekstreler yeniden LLM ile işlenecek. Devam?")) return;
+                              if (!window.confirm("Tüm PDF ekstreler yeniden LLM ile işlenecek (max 50, tek tek). Devam?")) return;
                               setIsReparsingStatements(true);
                               setReparseSummary(null);
                               try {
@@ -2530,14 +2561,31 @@ export function App() {
                                 };
                                 if (llmForm!.api_key) patch.llm_api_key = llmForm!.api_key;
                                 await patchLlmSettings(patch);
-                                const r = await reparseStatements("all_pdf");
-                                setReparseSummary(
-                                  `Bitti: ${r.succeeded ?? 0} başarılı, ${r.failed ?? 0} hata (toplam ${r.processed ?? 0}).`,
-                                );
+                                const list = await getStatements({ limit: 200 });
+                                const ids = list.items.map((it) => it.id).slice(0, 50);
+                                if (ids.length === 0) {
+                                  setReparseSummary("İşlenecek ekstre yok.");
+                                  return;
+                                }
+                                let ok = 0;
+                                let fail = 0;
+                                for (let i = 0; i < ids.length; i++) {
+                                  const id = ids[i];
+                                  setReparseSummary(`İşleniyor ${i + 1}/${ids.length} (ekstre #${id})…`);
+                                  try {
+                                    const r = await reparseStatements("selected", [id]);
+                                    const row = r.results?.[0];
+                                    if (row?.ok) ok += 1;
+                                    else fail += 1;
+                                  } catch {
+                                    fail += 1;
+                                  }
+                                }
+                                setReparseSummary(`Bitti: ${ok} başarılı, ${fail} sorunlu / ${ids.length} ekstre.`);
                                 await reloadCoreData();
-                                setSyncInfo("Tüm PDF ekstreler yeniden işlendi.");
+                                setSyncInfo("Tüm seçilen PDF ekstreler yeniden işlendi.");
                               } catch (e) {
-                                setErrorMessage(String(e));
+                                setErrorMessage(formatReparseFetchError(e));
                               } finally {
                                 setIsReparsingStatements(false);
                               }

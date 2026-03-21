@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.35 (2026-03-21)
+
+### Düzeltmeler
+- **AI yeniden parse**: Tek istek çok uzun sürdüğünde HA/proxy tarayıcıda `TypeError: Load failed` verebiliyordu; arayüz artık ekstreleri **tek tek** `POST` ile işler.
+- OpenAI varsayılan LLM **zaman aşımı 180 sn** (büyük PDF’lerde 60 sn yetmiyordu).
+
+---
+
 ## 1.0.34 (2026-03-21)
 
 ### Özellikler

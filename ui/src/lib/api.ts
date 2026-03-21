@@ -346,9 +346,20 @@ export async function triggerMailSync(
   return (await response.json()) as IngestionSyncResponse;
 }
 
-export async function getStatements(options?: RequestOptions): Promise<StatementListResponse> {
-  const response = await fetch("api/statements", {
-    headers: withRequestHeaders({ Accept: "application/json" }, options),
+export async function getStatements(
+  options?: RequestOptions & { limit?: number }
+): Promise<StatementListResponse> {
+  const limit = options?.limit;
+  const rest: RequestOptions | undefined = options
+    ? (() => {
+        const o = { ...options } as RequestOptions & { limit?: number };
+        delete o.limit;
+        return o;
+      })()
+    : undefined;
+  const url = typeof limit === "number" ? `api/statements?limit=${encodeURIComponent(String(limit))}` : "api/statements";
+  const response = await fetch(url, {
+    headers: withRequestHeaders({ Accept: "application/json" }, rest),
   });
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, `Statements request failed with status ${response.status}`));

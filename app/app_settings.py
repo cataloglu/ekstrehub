@@ -37,13 +37,14 @@ _PROVIDER_DEFAULTS = {
         "llm_api_url": "https://api.openai.com/v1",
         "llm_api_key": "",
         "llm_model": "gpt-4o-mini",
-        "llm_timeout_seconds": 60,
+        # Büyük PDF'ler + OpenAI gecikmesi için 60s sık yetmez (timeout → boş ekstre)
+        "llm_timeout_seconds": 180,
     },
     "custom": {
         "llm_api_url": "",
         "llm_api_key": "",
         "llm_model": "",
-        "llm_timeout_seconds": 60,
+        "llm_timeout_seconds": 120,
     },
 }
 

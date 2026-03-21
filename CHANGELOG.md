@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.35] – 2026-03-21
+
+### Fixes
+- Sequential re-parse requests (avoid ingress/browser timeout); OpenAI default LLM timeout 180s.
+
+---
+
 ## [1.0.34] – 2026-03-21
 
 ### Features
