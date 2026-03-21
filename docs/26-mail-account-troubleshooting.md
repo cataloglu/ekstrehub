@@ -33,6 +33,12 @@
 - **Neden:** Gmail seçiliyken arayüz her zaman “OAuth refresh token” textarea’sını gösteriyordu; API ise şifre modunda `imap_password` (şifre input’u) bekliyordu. Uygulama şifresi textarea’ya yazılınca sunucuya boş şifre gidiyordu.
 - **Çözüm:** `resolvedMailAuthMode === "oauth_gmail"` iken textarea, aksi halde şifre alanı gösterilir.
 
+## Sync çalışıyor ama «Taranan: 0» / hiç mail gelmiyor
+
+- **Neden (en sık):** Varsayılan **«Sadece okunmamış (UNSEEN)»** açık. Gmail’de ekstre e-postasını telefonda veya tarayıcıda **açtıysan** veya başka uygulama **okundu** işaretlediyse, IMAP’te artık UNSEEN değildir → arama boş döner.
+- **Ne yap:** Mail & Sync’te ilgili hesapta **«Sadece okunmamış»** kutusunu **kapat**, **Sync Başlat**. (Son N mail taranır; N = «Maksimum mail» limiti.)
+- **Diğer:** Posta kutusu yanlışsa (`INBOX` yerine etiket vb.) veya ekstre **Promotions/Spam**’deyse, önerilen kutulardan doğru klasörü seç.
+
 ## Diğer kontroller
 
 | Konu | Açıklama |

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.33] – 2026-03-21
+
+### Improvements
+- Mail UI: toggle UNSEEN-only vs scan last N; fetch limit selector; troubleshooting doc for zero scanned.
+
+---
+
 ## [1.0.32] – 2026-03-21
 
 ### Fixes

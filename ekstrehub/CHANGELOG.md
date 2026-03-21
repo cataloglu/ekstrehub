@@ -1,5 +1,14 @@
 # EkstreHub Changelog
 
+## 1.0.33 (2026-03-21)
+
+### İyileştirmeler
+- Mail & Sync: **Sadece okunmamış (UNSEEN)** için açık/kapa (Gmail’de ekstreyi okuduysan tarama 0 kalıyordu — kapatınca son N mail taranır).
+- Maksimum mail sayısı için 20/50/100/200 seçimi.
+- `docs/26-mail-account-troubleshooting.md`: «Taranan: 0» senaryosu.
+
+---
+
 ## 1.0.32 (2026-03-21)
 
 ### Düzeltmeler

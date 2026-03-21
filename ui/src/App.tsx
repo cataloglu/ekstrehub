@@ -1814,9 +1814,65 @@ export function App() {
                           ))}
                         </div>
                       </div>
+                      <div className="mailAccountSettingsRow" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+                        <span className="mailAccountSettingsLabel">Tarama kapsamı (Gmail’de çok önemli)</span>
+                        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: "0.9rem" }}>
+                          <input
+                            type="checkbox"
+                            checked={acct.unseen_only}
+                            style={{ marginTop: 3 }}
+                            onChange={async (e) => {
+                              try {
+                                const updated = await patchMailAccount(acct.id, { unseen_only: e.target.checked });
+                                setMailAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+                                setSyncInfo(
+                                  updated.unseen_only
+                                    ? "Sadece okunmamış (UNSEEN) mailler taranacak."
+                                    : "Son N mail taranacak (okunmuşlar dahil). Şimdi «Sync Başlat» ile dene.",
+                                );
+                              } catch (err) {
+                                setErrorMessage(String(err));
+                              }
+                            }}
+                          />
+                          <span>
+                            <strong>Sadece okunmamış (UNSEEN)</strong>
+                            <span className="muted" style={{ display: "block", fontSize: "0.82rem", marginTop: 4, lineHeight: 1.35 }}>
+                              Açıkken yalnızca henüz okunmamış postalar alınır. Telefonda veya Gmail’de ekstreyi açtıysan «okunmuş» sayılır ve{" "}
+                              <strong>tarama 0</strong> görebilirsin — bu kutuyu kapatıp tekrar sync et.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
                       <div className="mailAccountSettingsRow">
-                        <span className="mailAccountSettingsLabel">Maksimum mail tarama</span>
-                        <span className="mailboxCode">{acct.fetch_limit} mail</span>
+                        <span className="mailAccountSettingsLabel">Maksimum mail (son N)</span>
+                        <select
+                          className="filterSelect"
+                          style={{ maxWidth: 140 }}
+                          value={acct.fetch_limit}
+                          onChange={async (e) => {
+                            const n = Number(e.target.value);
+                            try {
+                              const updated = await patchMailAccount(acct.id, { fetch_limit: n });
+                              setMailAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+                              setSyncInfo(`Tarama limiti ${n} mail olarak kaydedildi.`);
+                            } catch (err) {
+                              setErrorMessage(String(err));
+                            }
+                          }}
+                        >
+                          {(() => {
+                            const presets = [20, 50, 100, 200];
+                            const opts = presets.includes(acct.fetch_limit)
+                              ? presets
+                              : [acct.fetch_limit, ...presets].sort((a, b) => a - b);
+                            return opts.map((n) => (
+                              <option key={n} value={n}>
+                                {n} mail
+                              </option>
+                            ));
+                          })()}
+                        </select>
                       </div>
                       <div className="mailAccountSettingsRow" style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border, #333)" }}>
                         <button
