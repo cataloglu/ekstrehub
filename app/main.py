@@ -290,6 +290,21 @@ async def delete_mail_account(account_id: int, request: Request) -> dict:
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 
 
+def _imap_error_is_invalid_credentials(reason: str) -> bool:
+    r = reason.lower()
+    return "authenticationfailed" in r or "invalid credentials" in r or "authentication failed" in r
+
+
+def _imap_auth_failed_user_message() -> str:
+    return (
+        "E-posta girişi reddedildi (IMAP). Gmail’de normal hesap şifren çalışmaz — "
+        "Google yalnızca «Uygulama şifresi» (16 karakter) kabul eder: "
+        "Google Hesabı → Güvenlik → 2 Adımlı doğrulama açık olmalı → Uygulama şifreleri. "
+        "EkstreHub’da Mail & Sync → «uygulama şifresi ile elle ekle» ile şifre alanını kullan. "
+        "Alternatif: add-on’da Gmail OAuth (Client ID/Secret) tanımlayıp «Gmail’e bağlan»."
+    )
+
+
 @app.post("/api/mail-ingestion/sync")
 async def run_mail_ingestion_sync(
     request: Request,
@@ -354,6 +369,15 @@ async def run_mail_ingestion_sync(
             )
             session.commit()
         reason = str(exc)
+        if _imap_error_is_invalid_credentials(reason):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "IMAP_AUTHENTICATION_FAILED",
+                    "message": _imap_auth_failed_user_message(),
+                    "details": {"reason": reason},
+                },
+            ) from exc
         raise HTTPException(
             status_code=500,
             detail={

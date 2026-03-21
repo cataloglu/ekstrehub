@@ -209,6 +209,9 @@ async function readErrorMessage(response: Response, fallback: string): Promise<s
     const code = err?.code;
     const message = err?.message;
     const reason = err?.details?.reason;
+    if (code === "IMAP_AUTHENTICATION_FAILED" && message) {
+      return message;
+    }
     if (reason && message) {
       return `${message} ${reason}`.trim();
     }

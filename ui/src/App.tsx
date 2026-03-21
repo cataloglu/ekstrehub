@@ -1904,7 +1904,15 @@ export function App() {
                       )}
                       {formProvider === "gmail" && gmailImapManual && (
                         <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.88rem" }}>
-                          Google’da <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">uygulama şifresi</a> ve <a href="https://mail.google.com/mail/u/0/#settings/fwdandpop" target="_blank" rel="noopener noreferrer">IMAP açık</a> olmalı.
+                          <strong>Normal Gmail şifren çalışmaz.</strong> Google Hesabı → Güvenlik → 2 adımlı doğrulama →{" "}
+                          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer">
+                            Uygulama şifreleri
+                          </a>{" "}
+                          ile 16 karakterlik şifre oluştur; aşağıdaki alana onu yapıştır.{" "}
+                          <a href="https://mail.google.com/mail/u/0/#settings/fwdandpop" target="_blank" rel="noopener noreferrer">
+                            IMAP erişimi
+                          </a>{" "}
+                          açık olmalı.
                         </p>
                       )}
                       {formProvider === "custom" && (

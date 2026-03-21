@@ -11,6 +11,11 @@
 - **Neden:** Yönlendirme yanlışlıkla `.../hassio_ingress/TOKEN?oauth=...` (TOKEN sonunda `/` yok) olabiliyordu; HA bu path’te 404 döner.
 - **Çözüm:** `.../TOKEN/?oauth=not_configured` (sürüm 1.0.24+). Asıl kalıcı çözüm: add-on’da Gmail OAuth Client ID/Secret tanımlamak.
 
+## `AUTHENTICATIONFAILED` / Invalid credentials (Gmail)
+
+- **Neden:** Gmail, IMAP için **hesap şifreni** kabul etmez (güvenlik). **Uygulama şifresi** (16 karakter) veya **OAuth** gerekir.
+- **Ne yap:** Google → Güvenlik → 2 adımlı doğrulama → [Uygulama şifreleri](https://myaccount.google.com/apppasswords) → yeni şifre oluştur → EkstreHub’da Mail & Sync’te bu şifreyi gir.
+
 ## Gmail “bağlan” tıklanınca URL açılmıyor (1.0.23)
 
 - **Neden:** Home Assistant Ingress iframe’i bazen varsayılan `<a href>` ile yeni sekmeyi engeller.

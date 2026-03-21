@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.25 (2026-02-21)
+
+### İyileştirmeler
+- **Gmail IMAP `AUTHENTICATIONFAILED`**: API artık Türkçe açıklama döner (normal şifre yerine uygulama şifresi / OAuth). Arayüzde Gmail manuel kurulum metni netleştirildi.
+
+---
+
 ## 1.0.24 (2026-02-21)
 
 ### Düzeltmeler

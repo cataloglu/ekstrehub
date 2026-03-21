@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.25] – 2026-02-21
+
+### İyileştirmeler
+- Gmail IMAP auth errors: user-facing Turkish message; UI copy for app password.
+
+---
+
 ## [1.0.24] – 2026-02-21
 
 ### Düzeltmeler
