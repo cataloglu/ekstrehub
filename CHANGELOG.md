@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.42] – 2026-03-21
+
+### Improvements
+- Logs tab: table / plain / cards; TSV export; clipboard fallback for HA.
+
+---
+
 ## [1.0.41] – 2026-03-21
 
 ### Improvements

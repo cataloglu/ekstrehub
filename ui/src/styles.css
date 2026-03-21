@@ -2000,6 +2000,159 @@ body {
   cursor: default;
 }
 
+.logsViewBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.logsViewModeBtns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.logsViewModeBtn {
+  background: var(--surface1);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.logsViewModeBtn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.logsViewModeBtn.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: var(--accent);
+}
+
+.logsExportBtns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.logsBody {
+  min-height: 120px;
+}
+
+.logTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface2);
+}
+
+.logDataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.logDataTable thead {
+  position: sticky;
+  top: 0;
+  background: var(--surface3);
+  z-index: 1;
+}
+.logDataTable th {
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 600;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.logDataTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border2);
+  vertical-align: top;
+}
+.logDataTable tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.12);
+}
+.logDataTable tbody tr:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+.logDataTable .logRowErr td {
+  background: rgba(248, 113, 113, 0.08);
+}
+.logTdMono {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+.logTdBreak {
+  word-break: break-word;
+  max-width: 280px;
+}
+.logTdStatus {
+  font-family: ui-monospace, monospace;
+  font-size: 0.74rem;
+}
+
+.logPlainTextArea {
+  width: 100%;
+  min-height: 320px;
+  max-height: 70vh;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  background: var(--surface1);
+  color: var(--text1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  resize: vertical;
+}
+
+/* İstemci logları — tablo */
+.clientLogTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 10px;
+}
+.clientLogTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.clientLogTable th {
+  text-align: left;
+  padding: 8px 10px;
+  background: var(--surface3);
+  color: var(--text3);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.clientLogTable td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border2);
+  vertical-align: top;
+}
+.clientLogTable tbody tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.1);
+}
+.clientLogMsg {
+  word-break: break-word;
+  max-width: 420px;
+}
+
 /* Timeline */
 .logsTimeline {
   display: flex;

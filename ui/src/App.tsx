@@ -38,6 +38,12 @@ import {
   type ActivityLogResponse,
   type ActivityEvent,
 } from "./lib/api";
+import {
+  buildActivityLogPlainText,
+  buildClientLogsPlainText,
+  copyTextRobust,
+  downloadTextFile,
+} from "./lib/logExport";
 
 type LoadState = "idle" | "loading" | "success" | "error";
 type AppTab = "dashboard" | "statements" | "search" | "mail" | "settings" | "logs";
@@ -71,6 +77,25 @@ function formatReparseFetchError(e: unknown): string {
     );
   }
   return s;
+}
+
+function fmtActivityDate(ts: string | null): string {
+  if (!ts) return "";
+  return new Date(ts).toLocaleString("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function relActivityAge(ts: string | null): string {
+  if (!ts) return "";
+  const diff = Math.round((Date.now() - new Date(ts).getTime()) / 1000);
+  if (diff < 60) return "az önce";
+  if (diff < 3600) return `${Math.floor(diff / 60)} dk önce`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`;
+  return `${Math.floor(diff / 86400)} gün önce`;
 }
 
 export function App() {
@@ -144,6 +169,8 @@ export function App() {
   const [activityFilter, setActivityFilter] = useState<"all" | "mail_sync" | "document_parse">("all");
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [activityRefreshTick, setActivityRefreshTick] = useState(0);
+  /** Loglar sekmesi: kart / tablo / düz metin */
+  const [activityViewMode, setActivityViewMode] = useState<"cards" | "table" | "text">("table");
   const [selectedStmtIds, setSelectedStmtIds] = useState<Set<number>>(new Set());
   const [isDeletingStmts, setIsDeletingStmts] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ ids: number[]; label: string } | null>(null);
@@ -166,19 +193,6 @@ export function App() {
         ...prev,
       ].slice(0, 200)
     );
-  }
-
-  async function copyLogsToClipboard(lines: string) {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(lines);
-      return;
-    }
-    const el = document.createElement("textarea");
-    el.value = lines;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand("copy");
-    document.body.removeChild(el);
   }
 
   async function reloadCoreData() {
@@ -680,6 +694,13 @@ export function App() {
       );
     });
   }, [uiLogs, logLevelFilter, logCategoryFilter, logSearch]);
+
+  const filteredActivityEvents = useMemo(() => {
+    if (!activityLog) return [];
+    return activityLog.activities.filter(
+      (a) => activityFilter === "all" || a.type === activityFilter,
+    );
+  }, [activityLog, activityFilter]);
 
   const bankNames = useMemo(() => {
     return Array.from(new Set(statements.map((s) => s.bank_name).filter(Boolean) as string[])).sort();
@@ -1759,6 +1780,7 @@ export function App() {
                   {(["all", "mail_sync", "document_parse"] as const).map((f) => (
                     <button
                       key={f}
+                      type="button"
                       className={`logsFilterChip${activityFilter === f ? " active" : ""}`}
                       onClick={() => setActivityFilter(f)}
                     >
@@ -1767,6 +1789,7 @@ export function App() {
                   ))}
                 </div>
                 <button
+                  type="button"
                   className="logsRefreshBtn"
                   onClick={() => setActivityRefreshTick((t) => t + 1)}
                   disabled={isLoadingActivity}
@@ -1777,8 +1800,54 @@ export function App() {
                 </button>
               </div>
 
-              {/* Activity timeline */}
-              <div className="logsTimeline">
+              {/* Görünüm + dışa aktarım (tablo / kart / düz metin — Excel’e uygun TSV) */}
+              <div className="logsViewBar">
+                <div className="logsViewModeBtns" role="tablist" aria-label="Log görünümü">
+                  {(["table", "text", "cards"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="tab"
+                      className={`logsViewModeBtn${activityViewMode === mode ? " active" : ""}`}
+                      onClick={() => setActivityViewMode(mode)}
+                    >
+                      {mode === "table" ? "Tablo" : mode === "text" ? "Düz metin" : "Kartlar"}
+                    </button>
+                  ))}
+                </div>
+                <div className="logsExportBtns">
+                  <button
+                    type="button"
+                    className="btn btnPrimary"
+                    disabled={!activityLog}
+                    title="Sekmeyle ayrılmış metin; Excel’e yapıştırılabilir"
+                    onClick={async () => {
+                      try {
+                        const t = buildActivityLogPlainText(activityLog, activityFilter);
+                        await copyTextRobust(t);
+                        pushLog("info", "system", "Aktivite logu panoya kopyalandı (TSV)");
+                      } catch {
+                        pushLog("error", "system", "Kopyalama başarısız");
+                      }
+                    }}
+                  >
+                    Panoya kopyala
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={!activityLog}
+                    onClick={() => {
+                      const t = buildActivityLogPlainText(activityLog, activityFilter);
+                      downloadTextFile(`ekstrehub-activity-${Date.now()}.txt`, t);
+                    }}
+                  >
+                    .txt indir
+                  </button>
+                </div>
+              </div>
+
+              <div className="logsBody">
                 {activityLogError ? (
                   <div className="logsEmpty" style={{ color: "var(--err)", marginBottom: 12 }}>
                     <strong>Yükleme hatası:</strong> {activityLogError}
@@ -1790,93 +1859,135 @@ export function App() {
                 {!activityLog && isLoadingActivity && (
                   <div className="logsEmpty">Yükleniyor…</div>
                 )}
-                {activityLog && (() => {
-                  const filtered: ActivityEvent[] = activityLog.activities.filter(
-                    (a) => activityFilter === "all" || a.type === activityFilter
-                  );
-                  if (filtered.length === 0) {
-                    const total = activityLog.activities.length;
-                    if (total === 0) {
-                      return (
-                        <div className="logsEmpty" style={{ textAlign: "left", maxWidth: 520, margin: "0 auto" }}>
-                          <p style={{ marginBottom: 10 }}>
-                            <strong>Henüz kayıt yok.</strong> Bu ekranda mail taraması ve ekstre işleme özeti görünür.
-                          </p>
-                          <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text3)", fontSize: "0.9rem" }}>
-                            <li>
-                              <strong>Mail tarandı mı?</strong> <strong>Mail &amp; Sync</strong> sekmesinde hesabı seçip{" "}
-                              <strong>Senkronize Et</strong> çalıştırın veya otomatik sync’i açın.
-                            </li>
-                            <li>
-                              <strong>Sayılar:</strong> <em>Taranan</em> = bakılan e-posta; <em>Kaydedilen</em> = eklenen ekstre
-                              eki; <em>Parse</em> = PDF/CSV’nin işlenmesi.
-                            </li>
-                            <li>
-                              Ekstre indirildiyse <strong>Özet</strong> ve <strong>Ekstreler</strong> sekmelerine de bakın.
-                            </li>
-                          </ul>
-                        </div>
-                      );
-                    }
+                {activityLog && filteredActivityEvents.length === 0 && (() => {
+                  const total = activityLog.activities.length;
+                  if (total === 0) {
                     return (
-                      <div className="logsEmpty">
-                        Bu filtrede kayıt yok. <button type="button" className="btn" onClick={() => setActivityFilter("all")}>Tümü</button>
+                      <div className="logsEmpty" style={{ textAlign: "left", maxWidth: 520, margin: "0 auto" }}>
+                        <p style={{ marginBottom: 10 }}>
+                          <strong>Henüz kayıt yok.</strong> Bu ekranda mail taraması ve ekstre işleme özeti görünür.
+                        </p>
+                        <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text3)", fontSize: "0.9rem" }}>
+                          <li>
+                            <strong>Mail tarandı mı?</strong> <strong>Mail &amp; Sync</strong> sekmesinde hesabı seçip{" "}
+                            <strong>Senkronize Et</strong> çalıştırın veya otomatik sync’i açın.
+                          </li>
+                          <li>
+                            <strong>Sayılar:</strong> <em>Taranan</em> = bakılan e-posta; <em>Kaydedilen</em> = eklenen ekstre
+                            eki; <em>Parse</em> = PDF/CSV’nin işlenmesi.
+                          </li>
+                          <li>
+                            Ekstre indirildiyse <strong>Özet</strong> ve <strong>Ekstreler</strong> sekmelerine de bakın.
+                          </li>
+                        </ul>
                       </div>
                     );
                   }
+                  return (
+                    <div className="logsEmpty">
+                      Bu filtrede kayıt yok.{" "}
+                      <button type="button" className="btn" onClick={() => setActivityFilter("all")}>Tümü</button>
+                    </div>
+                  );
+                })()}
 
-                  function relTime(ts: string | null): string {
-                    if (!ts) return "";
-                    const diff = Math.round((Date.now() - new Date(ts).getTime()) / 1000);
-                    if (diff < 60) return "az önce";
-                    if (diff < 3600) return `${Math.floor(diff / 60)} dk önce`;
-                    if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`;
-                    return `${Math.floor(diff / 86400)} gün önce`;
-                  }
+                {activityLog && filteredActivityEvents.length > 0 && activityViewMode === "table" && (
+                  <div className="logTableWrap">
+                    <table className="logDataTable">
+                      <thead>
+                        <tr>
+                          <th>Zaman</th>
+                          <th>Tür</th>
+                          <th>Durum</th>
+                          <th>Kimlik</th>
+                          <th>Hesap / dosya</th>
+                          <th>Özet</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredActivityEvents.map((ev) => {
+                          if (ev.type === "mail_sync") {
+                            const acc = [ev.account_label, ev.imap_user].filter(Boolean).join(" · ") || `hesap #${ev.mail_account_id ?? "—"}`;
+                            const sum = `taranan ${ev.scanned} · kayıt ${ev.saved} · tekrar ${ev.duplicates} · süre ${ev.duration_seconds ?? "—"}s`;
+                            return (
+                              <tr key={ev.id}>
+                                <td className="logTdMono" title={ev.timestamp ?? ""}>{fmtActivityDate(ev.timestamp)}</td>
+                                <td>mail_sync</td>
+                                <td><span className="logTdStatus">{ev.status}</span></td>
+                                <td className="logTdMono">run#{ev.run_id}</td>
+                                <td className="logTdBreak">{acc}</td>
+                                <td className="logTdBreak">{sum}{ev.notes ? ` · ${ev.notes}` : ""}</td>
+                              </tr>
+                            );
+                          }
+                          const evd = ev;
+                          const notes = (evd.parse_notes || []).join(", ");
+                          const sum = `${evd.transaction_count} işlem · ${(evd.file_size_bytes / 1024).toFixed(0)} KB${notes ? ` · ${notes}` : ""}`;
+                          return (
+                            <tr key={evd.id} className={evd.status === "parse_failed" ? "logRowErr" : ""}>
+                              <td className="logTdMono" title={evd.timestamp ?? ""}>{fmtActivityDate(evd.timestamp)}</td>
+                              <td>{evd.doc_type}_parse</td>
+                              <td><span className="logTdStatus">{evd.status}</span></td>
+                              <td className="logTdMono">doc#{evd.doc_id}</td>
+                              <td className="logTdBreak">{evd.bank_name ?? "—"} · {evd.file_name}</td>
+                              <td className="logTdBreak">{sum}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
 
-                  function fmtDate(ts: string | null): string {
-                    if (!ts) return "";
-                    const d = new Date(ts);
-                    return d.toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-                  }
+                {activityLog && filteredActivityEvents.length > 0 && activityViewMode === "text" && (
+                  <textarea
+                    className="logPlainTextArea"
+                    readOnly
+                    spellCheck={false}
+                    aria-label="Aktivite günlüğü düz metin"
+                    value={buildActivityLogPlainText(activityLog, activityFilter)}
+                  />
+                )}
 
-                  return filtered.map((ev) => {
-                    if (ev.type === "mail_sync") {
-                      const statusClass = ev.status === "completed" ? "logStatusOk" : ev.status === "running" ? "logStatusInfo" : "logStatusErr";
-                      const statusLabel = ev.status === "completed" ? "tamamlandı" : ev.status === "running" ? "çalışıyor" : ev.status === "completed_with_errors" ? "uyarıyla tamamlandı" : "başarısız";
-                      return (
-                        <div key={ev.id} className="logsItem logsItemSync">
-                          <div className="logsItemIcon">✉</div>
-                          <div className="logsItemBody">
-                            <div className="logsItemHeader">
-                              <span className="logsItemType">Mail Sync</span>
-                              <span className={`logStatusBadge ${statusClass}`}>{statusLabel}</span>
-                              {ev.duration_seconds != null && (
-                                <span className="logsItemMeta">{ev.duration_seconds < 60 ? `${ev.duration_seconds}s` : `${Math.floor(ev.duration_seconds / 60)}m`}</span>
-                              )}
-                              <span className="logsItemTime" title={ev.timestamp ?? ""}>{fmtDate(ev.timestamp)} · {relTime(ev.timestamp)}</span>
-                            </div>
-                            {(ev.mail_account_id != null || ev.account_label || ev.imap_user) && (
-                              <div style={{ fontSize: "0.78rem", color: "var(--text3)", marginBottom: 6, lineHeight: 1.35 }}>
-                                {ev.mail_account_id != null && <span>Hesap #{ev.mail_account_id}</span>}
-                                {ev.mail_account_id != null && (ev.account_label || ev.imap_user) ? " — " : ""}
-                                {[ev.account_label, ev.imap_user].filter(Boolean).join(" · ")}
+                {activityLog && filteredActivityEvents.length > 0 && activityViewMode === "cards" && (
+                  <div className="logsTimeline">
+                    {filteredActivityEvents.map((ev) => {
+                      if (ev.type === "mail_sync") {
+                        const statusClass = ev.status === "completed" ? "logStatusOk" : ev.status === "running" ? "logStatusInfo" : "logStatusErr";
+                        const statusLabel = ev.status === "completed" ? "tamamlandı" : ev.status === "running" ? "çalışıyor" : ev.status === "completed_with_errors" ? "uyarıyla tamamlandı" : "başarısız";
+                        return (
+                          <div key={ev.id} className="logsItem logsItemSync">
+                            <div className="logsItemIcon">✉</div>
+                            <div className="logsItemBody">
+                              <div className="logsItemHeader">
+                                <span className="logsItemType">Mail Sync</span>
+                                <span className={`logStatusBadge ${statusClass}`}>{statusLabel}</span>
+                                {ev.duration_seconds != null && (
+                                  <span className="logsItemMeta">{ev.duration_seconds < 60 ? `${ev.duration_seconds}s` : `${Math.floor(ev.duration_seconds / 60)}m`}</span>
+                                )}
+                                <span className="logsItemTime" title={ev.timestamp ?? ""}>{fmtActivityDate(ev.timestamp)} · {relActivityAge(ev.timestamp)}</span>
                               </div>
-                            )}
-                            {ev.notes ? (
-                              <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 8px", lineHeight: 1.35 }}>{ev.notes}</p>
-                            ) : null}
-                            <div className="logsItemDetail">
-                              <span className="logsChip logsChipNeutral">Taranan: {ev.scanned}</span>
-                              <span className="logsChip logsChipGreen">Kaydedilen: {ev.saved}</span>
-                              {ev.processed > 0 && <span className="logsChip logsChipNeutral">İşlenen: {ev.processed}</span>}
-                              {ev.duplicates > 0 && <span className="logsChip logsChipMuted">Tekrar: {ev.duplicates}</span>}
-                              {ev.failed > 0 && <span className="logsChip logsChipRed">Hata: {ev.failed}</span>}
+                              {(ev.mail_account_id != null || ev.account_label || ev.imap_user) && (
+                                <div style={{ fontSize: "0.78rem", color: "var(--text3)", marginBottom: 6, lineHeight: 1.35 }}>
+                                  {ev.mail_account_id != null && <span>Hesap #{ev.mail_account_id}</span>}
+                                  {ev.mail_account_id != null && (ev.account_label || ev.imap_user) ? " — " : ""}
+                                  {[ev.account_label, ev.imap_user].filter(Boolean).join(" · ")}
+                                </div>
+                              )}
+                              {ev.notes ? (
+                                <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 8px", lineHeight: 1.35 }}>{ev.notes}</p>
+                              ) : null}
+                              <div className="logsItemDetail">
+                                <span className="logsChip logsChipNeutral">Taranan: {ev.scanned}</span>
+                                <span className="logsChip logsChipGreen">Kaydedilen: {ev.saved}</span>
+                                {ev.processed > 0 && <span className="logsChip logsChipNeutral">İşlenen: {ev.processed}</span>}
+                                {ev.duplicates > 0 && <span className="logsChip logsChipMuted">Tekrar: {ev.duplicates}</span>}
+                                {ev.failed > 0 && <span className="logsChip logsChipRed">Hata: {ev.failed}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    } else {
+                        );
+                      }
                       const isOk = ev.status === "parsed";
                       const isFailed = ev.status === "parse_failed";
                       const statusClass = isOk ? "logStatusOk" : isFailed ? "logStatusErr" : "logStatusMuted";
@@ -1891,7 +2002,7 @@ export function App() {
                               {isOk && ev.transaction_count > 0 && (
                                 <span className="logsChip logsChipGreen">{ev.transaction_count} işlem</span>
                               )}
-                              <span className="logsItemTime" title={ev.timestamp ?? ""}>{fmtDate(ev.timestamp)} · {relTime(ev.timestamp)}</span>
+                              <span className="logsItemTime" title={ev.timestamp ?? ""}>{fmtActivityDate(ev.timestamp)} · {relActivityAge(ev.timestamp)}</span>
                             </div>
                             <div className="logsItemDetail">
                               {ev.bank_name && <span className="logsChip logsChipBank">{ev.bank_name}</span>}
@@ -1910,9 +2021,9 @@ export function App() {
                           </div>
                         </div>
                       );
-                    }
-                  });
-                })()}
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2851,6 +2962,10 @@ export function App() {
 
               {settingsSubTab === "logs" && (
                 <section className="section">
+                  <p className="muted" style={{ marginBottom: 12, fontSize: "0.88rem" }}>
+                    Bu oturumda tarayıcıda toplanan olaylar. <strong>Loglar</strong> sekmesindeki sunucu aktivitesi ayrıdır.
+                    Panoya kopyala = TSV (tab ile ayrılmış); Excel’e yapıştırılabilir.
+                  </p>
                   <div className="filterBar" style={{ marginBottom: 10 }}>
                     <select className="filterSelect" value={logLevelFilter} onChange={(e) => setLogLevelFilter(e.target.value as "all" | UiLogLevel)}>
                       <option value="all">Tüm seviyeler</option>
@@ -2868,36 +2983,59 @@ export function App() {
                     <input className="searchInput" placeholder="Ara..." value={logSearch} onChange={(e) => setLogSearch(e.target.value)} />
                   </div>
                   <div className="logActions">
-                    <button className="btn" onClick={() => setUiLogs([])}>Temizle</button>
+                    <button type="button" className="btn" onClick={() => setUiLogs([])}>Temizle</button>
                     <button
-                      className="btn"
+                      type="button"
+                      className="btn btnPrimary"
                       onClick={async () => {
-                        const lines = visibleLogs.map((e) => `[${e.level}] ${e.at} ${e.message}`).join("\n");
+                        const text = buildClientLogsPlainText(visibleLogs);
                         try {
-                          await copyLogsToClipboard(lines || "No logs");
-                          pushLog("info", "system", "Loglar kopyalandı");
+                          await copyTextRobust(text);
+                          pushLog("info", "system", "İstemci logları panoya kopyalandı (TSV)");
                         } catch {
                           pushLog("error", "system", "Kopyalama başarısız");
                         }
                       }}
                     >
-                      Kopyala
+                      Panoya kopyala (TSV)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => {
+                        const text = buildClientLogsPlainText(visibleLogs);
+                        downloadTextFile(`ekstrehub-client-logs-${Date.now()}.txt`, text);
+                      }}
+                    >
+                      .txt indir
                     </button>
                   </div>
-                  <div className="logList">
+                  <div className="clientLogTableWrap">
                     {visibleLogs.length === 0 ? (
                       <p className="muted" style={{ padding: "12px 14px" }}>Log kaydı yok.</p>
                     ) : (
-                      visibleLogs.map((entry) => (
-                        <div key={entry.id} className={`logItem${entry.level === "error" ? " logError" : ""}`}>
-                          <p className="logMeta">
-                            <span className={`logLevel logLevel-${entry.level}`}>{entry.level.toUpperCase()}</span>
-                            <span className="logCat">{entry.category}</span>
-                            <span className="logTime">{entry.at.replace("T", " ").replace("Z", "")}</span>
-                          </p>
-                          <p className="logMsg">{entry.message}</p>
-                        </div>
-                      ))
+                      <table className="clientLogTable">
+                        <thead>
+                          <tr>
+                            <th>Zaman</th>
+                            <th>Seviye</th>
+                            <th>Kategori</th>
+                            <th>İstek</th>
+                            <th>Mesaj</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleLogs.map((entry) => (
+                            <tr key={entry.id} className={entry.level === "error" ? "logRowErr" : ""}>
+                              <td className="logTdMono">{entry.at.replace("T", " ").replace("Z", "")}</td>
+                              <td><span className={`logLevel logLevel-${entry.level}`}>{entry.level}</span></td>
+                              <td>{entry.category}</td>
+                              <td className="logTdMono">{entry.requestId ?? "—"}</td>
+                              <td className="logTdBreak clientLogMsg">{entry.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     )}
                   </div>
                 </section>

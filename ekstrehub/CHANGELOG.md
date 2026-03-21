@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.42 (2026-03-21)
+
+### İyileştirmeler
+- **Loglar** sekmesi: varsayılan **tablo** görünümü, **düz metin** ve **kart** seçenekleri; **Panoya kopyala** / **.txt indir** (TSV, Excel uyumlu). Kopyalama HA/Ingress için güçlendirildi.
+- **Ayarlar → Sistem Logları**: tablo + TSV kopyala / indir.
+
+---
+
 ## 1.0.41 (2026-03-21)
 
 ### İyileştirmeler
