@@ -1,5 +1,14 @@
 # EkstreHub Changelog
 
+## 1.0.31 (2026-02-21)
+
+### İyileştirmeler
+- **Loglar** sekmesi: aktivite API’si hata verince artık uyarı gösterilir (sessiz başarısızlık yok).
+- Kayıt yokken kısa kullanım notu (Senkronize Et, Taranan/Kaydedilen anlamı).
+- **Mail Sync** satırında hesap **#id**, **etiket**, **e-posta** ve varsa sunucu **notu** (`/api/activity-log`).
+
+---
+
 ## 1.0.30 (2026-02-21)
 
 ### İyileştirmeler

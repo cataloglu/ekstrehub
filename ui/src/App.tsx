@@ -115,6 +115,7 @@ export function App() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [feeMode, setFeeMode] = useState(false);
   const [activityLog, setActivityLog] = useState<ActivityLogResponse | null>(null);
+  const [activityLogError, setActivityLogError] = useState<string | null>(null);
   const [activityFilter, setActivityFilter] = useState<"all" | "mail_sync" | "document_parse">("all");
   const [isLoadingActivity, setIsLoadingActivity] = useState(false);
   const [activityRefreshTick, setActivityRefreshTick] = useState(0);
@@ -309,8 +310,10 @@ export function App() {
         const data = await getActivityLog();
         if (!mounted) return;
         setActivityLog(data);
-      } catch {
-        // silently ignore
+        setActivityLogError(null);
+      } catch (e) {
+        if (!mounted) return;
+        setActivityLogError(e instanceof Error ? e.message : "Aktivite günlüğü alınamadı");
       } finally {
         if (mounted) setIsLoadingActivity(false);
       }
@@ -1572,6 +1575,14 @@ export function App() {
 
               {/* Activity timeline */}
               <div className="logsTimeline">
+                {activityLogError ? (
+                  <div className="logsEmpty" style={{ color: "var(--err)", marginBottom: 12 }}>
+                    <strong>Yükleme hatası:</strong> {activityLogError}
+                    <div className="muted" style={{ marginTop: 8, fontSize: "0.88rem" }}>
+                      Ağ veya sunucu sorunu olabilir. <strong>Yenile</strong> ile tekrar deneyin.
+                    </div>
+                  </div>
+                ) : null}
                 {!activityLog && isLoadingActivity && (
                   <div className="logsEmpty">Yükleniyor…</div>
                 )}
@@ -1580,7 +1591,34 @@ export function App() {
                     (a) => activityFilter === "all" || a.type === activityFilter
                   );
                   if (filtered.length === 0) {
-                    return <div className="logsEmpty">Kayıt bulunamadı.</div>;
+                    const total = activityLog.activities.length;
+                    if (total === 0) {
+                      return (
+                        <div className="logsEmpty" style={{ textAlign: "left", maxWidth: 520, margin: "0 auto" }}>
+                          <p style={{ marginBottom: 10 }}>
+                            <strong>Henüz kayıt yok.</strong> Bu ekranda mail taraması ve ekstre işleme özeti görünür.
+                          </p>
+                          <ul style={{ margin: 0, paddingLeft: 18, color: "var(--text3)", fontSize: "0.9rem" }}>
+                            <li>
+                              <strong>Mail tarandı mı?</strong> <strong>Mail &amp; Sync</strong> sekmesinde hesabı seçip{" "}
+                              <strong>Senkronize Et</strong> çalıştırın veya otomatik sync’i açın.
+                            </li>
+                            <li>
+                              <strong>Sayılar:</strong> <em>Taranan</em> = bakılan e-posta; <em>Kaydedilen</em> = eklenen ekstre
+                              eki; <em>Parse</em> = PDF/CSV’nin işlenmesi.
+                            </li>
+                            <li>
+                              Ekstre indirildiyse <strong>Özet</strong> ve <strong>Ekstreler</strong> sekmelerine de bakın.
+                            </li>
+                          </ul>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="logsEmpty">
+                        Bu filtrede kayıt yok. <button type="button" className="btn" onClick={() => setActivityFilter("all")}>Tümü</button>
+                      </div>
+                    );
                   }
 
                   function relTime(ts: string | null): string {
@@ -1614,6 +1652,16 @@ export function App() {
                               )}
                               <span className="logsItemTime" title={ev.timestamp ?? ""}>{fmtDate(ev.timestamp)} · {relTime(ev.timestamp)}</span>
                             </div>
+                            {(ev.mail_account_id != null || ev.account_label || ev.imap_user) && (
+                              <div style={{ fontSize: "0.78rem", color: "var(--text3)", marginBottom: 6, lineHeight: 1.35 }}>
+                                {ev.mail_account_id != null && <span>Hesap #{ev.mail_account_id}</span>}
+                                {ev.mail_account_id != null && (ev.account_label || ev.imap_user) ? " — " : ""}
+                                {[ev.account_label, ev.imap_user].filter(Boolean).join(" · ")}
+                              </div>
+                            )}
+                            {ev.notes ? (
+                              <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 8px", lineHeight: 1.35 }}>{ev.notes}</p>
+                            ) : null}
                             <div className="logsItemDetail">
                               <span className="logsChip logsChipNeutral">Taranan: {ev.scanned}</span>
                               <span className="logsChip logsChipGreen">Kaydedilen: {ev.saved}</span>

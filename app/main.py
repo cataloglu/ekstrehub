@@ -915,6 +915,12 @@ async def get_activity_log(request: Request, limit: int = 80):
                 select(StatementDocument).order_by(desc(StatementDocument.id)).limit(60)
             ).all()
 
+            account_ids = {r.mail_account_id for r in runs if r.mail_account_id}
+            accounts_by_id: dict[int, MailAccount] = {}
+            if account_ids:
+                for acc in session.scalars(select(MailAccount).where(MailAccount.id.in_(account_ids))).all():
+                    accounts_by_id[acc.id] = acc
+
             activities: list[dict] = []
 
             for run in runs:
@@ -922,6 +928,7 @@ async def get_activity_log(request: Request, limit: int = 80):
                 if run.started_at and run.finished_at:
                     duration = round((run.finished_at - run.started_at).total_seconds())
                 ts = run.finished_at or run.started_at
+                acc = accounts_by_id.get(run.mail_account_id) if run.mail_account_id else None
                 activities.append({
                     "type": "mail_sync",
                     "id": f"run_{run.id}",
@@ -929,12 +936,15 @@ async def get_activity_log(request: Request, limit: int = 80):
                     "timestamp": ts.isoformat() if ts else None,
                     "status": run.status,
                     "mail_account_id": run.mail_account_id,
+                    "account_label": acc.account_label if acc else None,
+                    "imap_user": acc.imap_user if acc else None,
                     "scanned": run.scanned_messages,
                     "processed": run.processed_messages,
                     "saved": run.saved_documents,
                     "failed": run.failed_messages,
                     "duplicates": run.duplicate_messages,
                     "duration_seconds": duration,
+                    "notes": run.notes,
                 })
 
             for doc in docs:

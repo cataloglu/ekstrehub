@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.31] – 2026-02-21
+
+### Improvements
+- Logs tab: show error if activity API fails; empty-state help; mail sync rows include account id/label/email and notes.
+
+---
+
+## [1.0.30] – 2026-02-21
+
+### Improvements
+- Mail & Sync: Mac Mail vs EkstreHub OAuth / app password copy.
+
+---
+
 ## [1.0.29] – 2026-02-21
 
 ### Documentation

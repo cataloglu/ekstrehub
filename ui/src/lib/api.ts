@@ -483,12 +483,18 @@ export type ActivityMailSync = {
   timestamp: string | null;
   status: "running" | "completed" | "completed_with_errors" | "failed";
   mail_account_id: number | null;
+  /** Hesap adı (sunucudan; yoksa null) */
+  account_label?: string | null;
+  /** IMAP kullanıcı / e-posta */
+  imap_user?: string | null;
   scanned: number;
   processed: number;
   saved: number;
   failed: number;
   duplicates: number;
   duration_seconds: number | null;
+  /** İşlem notu / kısa özet (varsa) */
+  notes?: string | null;
 };
 
 export type ActivityDocParse = {
