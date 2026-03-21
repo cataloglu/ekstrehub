@@ -15,6 +15,7 @@ import {
   getLlmSettings,
   patchLlmSettings,
   testLlmConnection,
+  reparseStatements,
   patchMailAccount,
   rejectParserChange,
   setAutoSync,
@@ -112,6 +113,8 @@ export function App() {
   const [llmTestResult, setLlmTestResult] = useState<{ ok: boolean; reply?: string; detail?: string } | null>(null);
   const [isSavingLlm, setIsSavingLlm] = useState(false);
   const [isTestingLlm, setIsTestingLlm] = useState(false);
+  const [isReparsingStatements, setIsReparsingStatements] = useState(false);
+  const [reparseSummary, setReparseSummary] = useState<string | null>(null);
   const [globalSearch, setGlobalSearch] = useState("");
   const [feeMode, setFeeMode] = useState(false);
   const [activityLog, setActivityLog] = useState<ActivityLogResponse | null>(null);
@@ -2228,8 +2231,8 @@ export function App() {
               {settingsSubTab === "ai-parser" && (
                 <section className="section">
                   <p className="muted" style={{ marginBottom: 20 }}>
-                    Regex parser tanıyamadığı ekstreyi buraya gönderir. ChatGPT API önerilir — yerel
-                    Ollama CPU'da çok yavaş olabilir.
+                    Ekstreler PDF metninden <strong>AI (LLM)</strong> ile çözülür. API URL ve model kayıtlı olmalı.
+                    Yerel Ollama CPU&apos;da yavaş olabilir; ChatGPT API önerilir.
                   </p>
 
                   {llmForm && (
@@ -2238,7 +2241,7 @@ export function App() {
                       <div className="autoSyncRow">
                         <div className="autoSyncLabel">
                           AI Parser
-                          <div className="autoSyncSub">Regex 0 işlem döndürürse AI devreye girer</div>
+                          <div className="autoSyncSub">Kapalıysa LLM çağrılmaz (yeni ekstreler boş kalır)</div>
                         </div>
                         <label className="toggle">
                           <input
@@ -2454,6 +2457,99 @@ export function App() {
                             : `✗ Bağlantı başarısız: ${llmTestResult.detail}`}
                         </div>
                       )}
+
+                      {/* Re-parse existing PDFs after enabling LLM */}
+                      <div className="llmInfoBox" style={{ marginTop: 16 }}>
+                        <strong>AI’yi sonradan açtıysan:</strong> Eski ekstreler otomatik yeniden işlenmez.
+                        Mailden PDF tekrar alınır ve güncel LLM ayarlarıyla parse edilir (IMAP gerekir).
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+                          <button
+                            type="button"
+                            className="btn btnPrimary"
+                            disabled={
+                              isReparsingStatements
+                              || !(llmForm?.api_url?.trim() || llmSettings?.llm_api_url?.trim())
+                            }
+                            title={
+                              !(llmForm?.api_url?.trim() || llmSettings?.llm_api_url?.trim())
+                                ? "Önce API URL gir ve Kaydet"
+                                : undefined
+                            }
+                            onClick={async () => {
+                              setIsReparsingStatements(true);
+                              setReparseSummary(null);
+                              try {
+                                const patch: Record<string, unknown> = {
+                                  llm_provider: llmForm!.provider,
+                                  llm_api_url: llmForm!.api_url,
+                                  llm_model: llmForm!.model,
+                                  llm_timeout_seconds: llmForm!.timeout,
+                                  llm_enabled: llmForm!.enabled,
+                                  llm_min_tx_threshold: llmForm!.min_tx_threshold,
+                                };
+                                if (llmForm!.api_key) patch.llm_api_key = llmForm!.api_key;
+                                await patchLlmSettings(patch);
+                                const r = await reparseStatements("empty");
+                                const ok = r.succeeded ?? 0;
+                                const fail = r.failed ?? 0;
+                                setReparseSummary(
+                                  r.message
+                                    ? r.message
+                                    : `Bitti: ${ok} başarılı, ${fail} hata / toplam ${r.processed ?? 0} deneme.`,
+                                );
+                                await reloadCoreData();
+                                setSyncInfo("Ekstreler yeniden parse edildi; Özet ve Ekstreler sekmesine bak.");
+                              } catch (e) {
+                                setErrorMessage(String(e));
+                              } finally {
+                                setIsReparsingStatements(false);
+                              }
+                            }}
+                          >
+                            {isReparsingStatements ? "İşleniyor…" : "Boş / hatalı ekstreleri yeniden çöz"}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={
+                              isReparsingStatements
+                              || !(llmForm?.api_url?.trim() || llmSettings?.llm_api_url?.trim())
+                            }
+                            onClick={async () => {
+                              if (!window.confirm("Tüm PDF ekstreler yeniden LLM ile işlenecek. Devam?")) return;
+                              setIsReparsingStatements(true);
+                              setReparseSummary(null);
+                              try {
+                                const patch: Record<string, unknown> = {
+                                  llm_provider: llmForm!.provider,
+                                  llm_api_url: llmForm!.api_url,
+                                  llm_model: llmForm!.model,
+                                  llm_timeout_seconds: llmForm!.timeout,
+                                  llm_enabled: llmForm!.enabled,
+                                  llm_min_tx_threshold: llmForm!.min_tx_threshold,
+                                };
+                                if (llmForm!.api_key) patch.llm_api_key = llmForm!.api_key;
+                                await patchLlmSettings(patch);
+                                const r = await reparseStatements("all_pdf");
+                                setReparseSummary(
+                                  `Bitti: ${r.succeeded ?? 0} başarılı, ${r.failed ?? 0} hata (toplam ${r.processed ?? 0}).`,
+                                );
+                                await reloadCoreData();
+                                setSyncInfo("Tüm PDF ekstreler yeniden işlendi.");
+                              } catch (e) {
+                                setErrorMessage(String(e));
+                              } finally {
+                                setIsReparsingStatements(false);
+                              }
+                            }}
+                          >
+                            Tüm PDF’leri yeniden çöz (max 50)
+                          </button>
+                        </div>
+                        {reparseSummary && (
+                          <p className="muted" style={{ marginTop: 10, fontSize: "0.88rem" }}>{reparseSummary}</p>
+                        )}
+                      </div>
 
                       {/* Info box for OpenAI */}
                       {llmForm.provider === "openai" && (

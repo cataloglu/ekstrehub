@@ -476,6 +476,39 @@ export async function testLlmConnection(options?: RequestOptions): Promise<{ ok:
   return data as { ok: boolean; model?: string; reply?: string; detail?: string };
 }
 
+export type ReparseBatchResponse = {
+  ok: boolean;
+  error?: string;
+  message?: string;
+  processed?: number;
+  succeeded?: number;
+  failed?: number;
+  results?: Array<{
+    doc_id: number;
+    ok: boolean;
+    error?: string;
+    bank_name?: string;
+    transaction_count?: number;
+    parse_notes?: string[];
+  }>;
+};
+
+export async function reparseStatements(
+  scope: "empty" | "failed" | "all_pdf" | "selected",
+  doc_ids?: number[],
+  options?: RequestOptions
+): Promise<ReparseBatchResponse> {
+  const response = await fetch("api/statements/reparse", {
+    method: "POST",
+    headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
+    body: JSON.stringify({ scope, doc_ids: doc_ids ?? [] }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Yeniden parse başarısız: ${response.status}`));
+  }
+  return (await response.json()) as ReparseBatchResponse;
+}
+
 export type ActivityMailSync = {
   type: "mail_sync";
   id: string;

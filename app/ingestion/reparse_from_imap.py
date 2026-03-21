@@ -1,0 +1,323 @@
+"""Re-fetch PDFs from IMAP and re-run the statement parser (e.g. after enabling LLM)."""
+from __future__ import annotations
+
+import email as email_lib
+import imaplib
+import json
+import logging
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config import get_settings
+from app.db.models import EmailIngested, MailAccount, StatementDocument
+from app.ingestion.gmail_oauth import refresh_access_token
+from app.ingestion.pdf_extractor import extract_text_from_pdf
+from app.ingestion.runtime_config import runtime_from_mail_account
+from app.ingestion.statement_parser import parse_statement
+import app.app_settings as app_settings_module
+
+log = logging.getLogger(__name__)
+
+# Try primary mailbox first, then common Gmail folders (same idea as scripts/reparse_failed.py)
+_FALLBACK_MAILBOXES = (
+    "[Gmail]/All Mail",
+    "INBOX",
+    "[Gmail]/Promotions",
+    "[Gmail]/Spam",
+)
+
+
+def _quote_mailbox(name: str) -> str:
+    if " " in name or name.startswith("["):
+        escaped = name.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    return name
+
+
+def _imap_login(mail_account: MailAccount) -> imaplib.IMAP4_SSL:
+    settings = get_settings()
+    runtime = runtime_from_mail_account(mail_account)
+    mail = imaplib.IMAP4_SSL(runtime.imap_host, int(runtime.imap_port))
+    if runtime.auth_mode == "oauth_gmail":
+        token = mail_account.oauth_refresh_token or ""
+        access = refresh_access_token(settings, token)
+        auth_string = f"user={runtime.imap_user}\x01auth=Bearer {access}\x01\x01"
+        mail.authenticate("XOAUTH2", lambda _: auth_string.encode("utf-8"))
+    else:
+        mail.login(runtime.imap_user, runtime.imap_password)
+    return mail
+
+
+def _extract_pdf_from_rfc822(raw: bytes, file_name_hint: str) -> bytes | None:
+    msg = email_lib.message_from_bytes(raw)
+    hint_lower = (file_name_hint or "").lower()
+    first_pdf: bytes | None = None
+    for part in msg.walk():
+        fn = (part.get_filename() or "").strip()
+        ct = (part.get_content_type() or "").lower()
+        if ct == "application/pdf" or fn.lower().endswith(".pdf"):
+            payload = part.get_payload(decode=True)
+            if payload and len(payload) > 100:
+                if hint_lower and fn.lower() == hint_lower:
+                    return payload
+                if first_pdf is None:
+                    first_pdf = payload
+    return first_pdf
+
+
+def fetch_pdf_for_document(
+    mail: imaplib.IMAP4_SSL,
+    mail_account: MailAccount,
+    message_id: str,
+    file_name: str,
+) -> bytes | None:
+    """Locate message by Message-ID across mailboxes; return PDF bytes."""
+    mid = (message_id or "").strip()
+    if not mid:
+        return None
+
+    primary = (mail_account.mailbox or "INBOX").strip()
+    folders = [primary] + [f for f in _FALLBACK_MAILBOXES if f != primary]
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for f in folders:
+        if f not in seen:
+            seen.add(f)
+            ordered.append(f)
+
+    crit = f'HEADER Message-ID "{mid}"'
+    for folder in ordered:
+        try:
+            mb = _quote_mailbox(folder)
+            st, _ = mail.select(mb, readonly=True)
+            if st != "OK":
+                continue
+            typ, data = mail.search(None, crit)
+            if typ != "OK" or not data or not data[0]:
+                continue
+            uids = data[0].split()
+            if not uids:
+                continue
+            uid = uids[-1]
+            typ, msg_data = mail.fetch(uid, "(RFC822)")
+            if typ != "OK" or not msg_data or not isinstance(msg_data[0], tuple):
+                continue
+            raw = msg_data[0][1]
+            if isinstance(raw, int):
+                continue
+            pdf = _extract_pdf_from_rfc822(raw, file_name)
+            if pdf:
+                return pdf
+        except Exception as exc:
+            log.debug("fetch_pdf folder=%s err=%s", folder, exc)
+            continue
+    return None
+
+
+def _result_to_json(result: Any) -> str:
+    return json.dumps(
+        {
+            "bank_name": result.bank_name,
+            "card_number": result.card_number,
+            "period_start": str(result.statement_period_start) if result.statement_period_start else None,
+            "period_end": str(result.statement_period_end) if result.statement_period_end else None,
+            "due_date": str(result.due_date) if result.due_date else None,
+            "total_due_try": result.total_due_try,
+            "minimum_due_try": result.minimum_due_try,
+            "transactions": [
+                {
+                    "date": str(tx.date) if tx.date else None,
+                    "description": tx.description,
+                    "amount": tx.amount,
+                    "currency": tx.currency,
+                }
+                for tx in result.transactions
+            ],
+            "parse_notes": result.parse_notes,
+        },
+        ensure_ascii=False,
+    )
+
+
+def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: imaplib.IMAP4_SSL) -> dict[str, Any]:
+    """Re-parse a single PDF statement document. Caller holds IMAP connection and mail_account."""
+    email_row = session.get(EmailIngested, doc.email_ingested_id)
+    if not email_row or not email_row.mail_account_id:
+        return {"doc_id": doc.id, "ok": False, "error": "email_or_account_missing"}
+
+    acct = session.get(MailAccount, email_row.mail_account_id)
+    if not acct or not acct.is_active:
+        return {"doc_id": doc.id, "ok": False, "error": "mail_account_missing"}
+
+    pdf = fetch_pdf_for_document(mail, acct, email_row.message_id, doc.file_name)
+    if not pdf:
+        return {"doc_id": doc.id, "ok": False, "error": "pdf_not_found_in_imap"}
+
+    try:
+        text = extract_text_from_pdf(pdf)
+    except Exception as exc:
+        return {"doc_id": doc.id, "ok": False, "error": f"pdf_extract_failed:{exc}"}
+
+    bank_hint = None
+    if doc.parsed_json:
+        try:
+            pj = json.loads(doc.parsed_json)
+            bank_hint = pj.get("bank_name")
+        except Exception:
+            pass
+    if not bank_hint and email_row.bank_name:
+        bank_hint = email_row.bank_name
+
+    llm = app_settings_module.get_llm_config()
+    llm_url = llm["llm_api_url"] if llm.get("llm_enabled") else ""
+
+    result = parse_statement(
+        text,
+        bank_hint,
+        llm_api_url=llm_url,
+        llm_model=llm["llm_model"],
+        llm_api_key=llm["llm_api_key"],
+        llm_timeout_seconds=int(llm.get("llm_timeout_seconds", 120)),
+        llm_min_tx_threshold=int(llm.get("llm_min_tx_threshold", 0)),
+    )
+
+    doc.parsed_json = _result_to_json(result)
+    doc.parse_status = "parsed"
+    session.commit()
+
+    return {
+        "doc_id": doc.id,
+        "ok": True,
+        "bank_name": result.bank_name,
+        "transaction_count": len(result.transactions),
+        "parse_notes": result.parse_notes,
+    }
+
+
+def collect_doc_ids_for_scope(session: Session, scope: str, doc_ids: list[int]) -> list[int]:
+    """Return statement document IDs to re-parse."""
+    if scope == "selected":
+        if not doc_ids:
+            return []
+        rows = session.scalars(
+            select(StatementDocument.id).where(StatementDocument.id.in_(doc_ids))
+        ).all()
+        return list(rows)
+
+    if scope == "failed":
+        rows = session.scalars(
+            select(StatementDocument.id)
+            .where(StatementDocument.doc_type == "pdf")
+            .where(StatementDocument.parse_status == "parse_failed")
+            .order_by(StatementDocument.id)
+        ).all()
+        return list(rows)
+
+    if scope == "empty":
+        # Parsed but no transactions (or LLM notes), or parse_failed
+        candidates = session.scalars(select(StatementDocument).where(StatementDocument.doc_type == "pdf")).all()
+        out: list[int] = []
+        for d in candidates:
+            if d.parse_status == "parse_failed":
+                out.append(d.id)
+                continue
+            if d.parse_status != "parsed":
+                continue
+            n = 0
+            notes: list[str] = []
+            if d.parsed_json:
+                try:
+                    pj = json.loads(d.parsed_json)
+                    n = len(pj.get("transactions") or [])
+                    notes = pj.get("parse_notes") or []
+                except Exception:
+                    n = 0
+            if n == 0 or "llm_required" in notes or "no_transactions_found" in notes:
+                out.append(d.id)
+        return out
+
+    if scope == "all_pdf":
+        rows = session.scalars(
+            select(StatementDocument.id)
+            .where(StatementDocument.doc_type == "pdf")
+            .order_by(StatementDocument.id)
+        ).all()
+        return list(rows)
+
+    return []
+
+
+def run_batch_reparse(scope: str, doc_ids: list[int], max_docs: int = 40) -> dict[str, Any]:
+    """Run re-parse in a blocking batch (call from thread pool)."""
+    from app.db.session import get_session_factory
+
+    cfg = app_settings_module.get_llm_config()
+    if not cfg.get("llm_enabled") or not (cfg.get("llm_api_url") or "").strip():
+        return {
+            "ok": False,
+            "error": "llm_not_configured",
+            "message": "AI parser açık ve LLM API URL dolu olmalı (Ayarlar → AI Parser).",
+        }
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        ids = collect_doc_ids_for_scope(session, scope, doc_ids)
+        ids = ids[:max_docs]
+
+    if not ids:
+        return {"ok": True, "processed": 0, "skipped": 0, "results": [], "message": "Uygun PDF ekstre bulunamadı."}
+
+    # Group by mail account to reuse IMAP connections
+    from collections import defaultdict
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        by_account: dict[int, list[StatementDocument]] = defaultdict(list)
+        for doc_id in ids:
+            doc = session.get(StatementDocument, doc_id)
+            if not doc or doc.doc_type != "pdf":
+                continue
+            email_row = session.get(EmailIngested, doc.email_ingested_id)
+            if not email_row or not email_row.mail_account_id:
+                continue
+            by_account[email_row.mail_account_id].append(doc)
+
+    results: list[dict[str, Any]] = []
+    for acct_id, docs in by_account.items():
+        with session_factory() as session:
+            acct = session.get(MailAccount, acct_id)
+            if not acct:
+                for d in docs:
+                    results.append({"doc_id": d.id, "ok": False, "error": "account_gone"})
+                continue
+        mail = _imap_login(acct)
+        try:
+            for doc in docs:
+                # Re-load doc in fresh session for update
+                with session_factory() as session:
+                    d = session.get(StatementDocument, doc.id)
+                    if not d:
+                        results.append({"doc_id": doc.id, "ok": False, "error": "doc_gone"})
+                        continue
+                    try:
+                        r = reparse_one_pdf_document(session, d, mail)
+                        results.append(r)
+                    except Exception as exc:
+                        log.exception("reparse doc %s", doc.id)
+                        results.append({"doc_id": doc.id, "ok": False, "error": str(exc)})
+        finally:
+            try:
+                mail.logout()
+            except Exception:
+                pass
+
+    ok_n = sum(1 for r in results if r.get("ok"))
+    return {
+        "ok": True,
+        "processed": len(results),
+        "succeeded": ok_n,
+        "failed": len(results) - ok_n,
+        "results": results,
+    }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.34] – 2026-03-21
+
+### Features
+- Bulk re-parse PDF statements via API + Settings → AI Parser buttons (after enabling LLM).
+
+---
+
 ## [1.0.33] – 2026-03-21
 
 ### Improvements

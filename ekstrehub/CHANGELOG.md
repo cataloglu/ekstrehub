@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.34 (2026-03-21)
+
+### Özellikler
+- **AI Parser**: LLM sonradan açıldığında eski PDF ekstreleri yeniden çözmek için `POST /api/statements/reparse` ve arayüzde **Boş/hatalı ekstreleri yeniden çöz** / **Tüm PDF’leri yeniden çöz** (IMAP’ten PDF tekrar alınır, güncel LLM ayarları kullanılır).
+
+---
+
 ## 1.0.33 (2026-03-21)
 
 ### İyileştirmeler

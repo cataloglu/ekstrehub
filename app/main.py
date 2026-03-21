@@ -618,6 +618,52 @@ async def list_statements(request: Request, limit: int = 50):
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 
 
+@app.post("/api/statements/reparse")
+async def reparse_statements(request: Request):
+    """Re-fetch PDFs from IMAP and run the AI parser again (e.g. after enabling LLM).
+
+    Body: { "scope": "empty" | "failed" | "all_pdf" | "selected", "doc_ids"?: number[] }
+    """
+    body = await request.json()
+    scope = body.get("scope", "empty")
+    raw_ids = body.get("doc_ids") or []
+    if scope not in ("selected", "empty", "failed", "all_pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "invalid_scope", "message": "scope: selected | empty | failed | all_pdf"},
+        )
+    if not isinstance(raw_ids, list):
+        raw_ids = []
+    doc_ids_int: list[int] = []
+    for x in raw_ids:
+        try:
+            doc_ids_int.append(int(x))
+        except (TypeError, ValueError):
+            continue
+
+    from app.ingestion.reparse_from_imap import run_batch_reparse
+
+    result = await asyncio.to_thread(run_batch_reparse, scope, doc_ids_int, 50)
+    if not result.get("ok") and result.get("error") == "llm_not_configured":
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "llm_not_configured",
+                "message": result.get("message", "LLM yapılandırılmamış."),
+            },
+        )
+    log_event(
+        request_logger,
+        "statements_reparse_batch",
+        category="parser",
+        scope=scope,
+        processed=result.get("processed"),
+        succeeded=result.get("succeeded"),
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return result
+
+
 @app.delete("/api/statements/{doc_id}")
 async def delete_statement(doc_id: int, request: Request):
     """Delete a single parsed statement document and its email if no other docs reference it."""

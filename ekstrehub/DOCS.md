@@ -15,8 +15,9 @@ Kredi kartı ekstrelerini Gmail'den otomatik indirir, AI ile parse eder ve Home 
 1. **Mail hesabı ekle / sil** — **Mail & Sync** sekmesinde üstten hesabı seç; ayarların altında **Bu mail hesabını sil** ile silebilirsin (onay sorar). Ekstreler silinmez; sadece o hesap bağlantısı kalkar.
 2. **Gmail** — Telefon/Mac Mail gibi: **Gmail’e bağlan (tarayıcıda aç)** ile Google oturum ekranı (OAuth). OAuth add-on’da ayarlı değilse açılır bölümden **uygulama şifresi ile elle ekle** kullanılabilir.
 3. **Diğer sağlayıcılar** — Aynı sekmeden Outlook/özel IMAP ve şifre veya gelişmiş OAuth token.
-4. **AI Parser ayarla** — Ayarlar → OpenAI API key gir (opsiyonel)
+4. **AI Parser ayarla** — Ayarlar → **AI Parser**: API URL + model + anahtar (OpenAI önerilir)
 5. **Sync et** — İlk mailleri indir
+6. **AI’yi sonradan açtıysan** — Eski ekstreler otomatik yeniden işlenmez. Ayarlar → AI Parser bölümünde **«Boş / hatalı ekstreleri yeniden çöz»** (veya gerekirse **Tüm PDF’leri yeniden çöz**); sunucu maili tekrar IMAP’ten alıp LLM ile parse eder.
 
 ## Gmail OAuth (Google ile Bağlan)
 
