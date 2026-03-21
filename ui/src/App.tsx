@@ -1850,7 +1850,9 @@ export function App() {
                   {formProvider === "gmail" && (
                     <>
                       <p className="muted" style={{ gridColumn: "1 / -1", marginBottom: 0 }}>
-                        iPhone / Mac <strong>Mail</strong> veya Outlook’taki gibi: Google’ın kendi sayfasında oturum açarsın; EkstreHub ana şifreni tutmaz, sadece Google izin verir.
+                        <strong>«Gmail’e bağlan»</strong> tıklanınca Google’ın sitesinde (
+                        <em>Sign in with Google — hesap seç, postaya izin ver</em>) ekranı açılır; EkstreHub bu pencereyi kopyalamaz, seni{" "}
+                        <code>accounts.google.com</code> adresine yönlendirir. EkstreHub Gmail şifreni saklamaz.
                       </p>
                       <a
                         className="btn btnGoogle"
@@ -1866,7 +1868,15 @@ export function App() {
                       </a>
                       {!health?.gmail_oauth_configured && (
                         <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.88rem" }}>
-                          Add-on’da henüz Google girişi ayarlı değilse yukarıdaki bağlantı seni geri yönlendirir — o zaman yönetici OAuth kurmalı veya aşağıdaki manuel yolu kullan.
+                          Bu ekranın açılması için add-on <strong>Yapılandırma</strong>’da{" "}
+                          <code>gmail_oauth_client_id</code> ve <code>gmail_oauth_client_secret</code> (Google Cloud
+                          Console’da bir OAuth istemcisi) tanımlı olmalı; yoksa Google’a gidilmez. O zaman yönetici
+                          kurar veya aşağıdan uygulama şifresi ile devam edersin.
+                        </p>
+                      )}
+                      {health?.gmail_oauth_configured && (
+                        <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.88rem" }}>
+                          OAuth hazır: butona basınca yeni sekmede Google hesabını seçip posta iznini verirsin.
                         </p>
                       )}
                       <button

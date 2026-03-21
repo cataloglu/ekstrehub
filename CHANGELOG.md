@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.26] – 2026-02-21
+
+### Düzeltmeler
+- Gmail OAuth: fix `window.open` noopener null bug (Google login not opening).
+
+---
+
 ## [1.0.25] – 2026-02-21
 
 ### İyileştirmeler

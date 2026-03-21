@@ -22,8 +22,9 @@ def build_auth_url(client_id: str, redirect_uri: str, state: str = "") -> str:
         "redirect_uri": redirect_uri,
         "response_type": "code",
         "scope": GMAIL_SCOPES,
+        # Hesap seç + izin (OpenAI vb. ile aynı accounts.google.com akışı)
         "access_type": "offline",
-        "prompt": "consent",
+        "prompt": "select_account consent",
     }
     if state:
         params["state"] = state
