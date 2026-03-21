@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.30 (2026-02-21)
+
+### İyileştirmeler
+- Mail & Sync: Mac Mail’in anahtar sormama nedeni + EkstreHub’da bir kez yönetici ayarı / uygulama şifresi alternatifi (UI metni).
+
+---
+
 ## 1.0.29 (2026-02-21)
 
 ### Dokümantasyon
