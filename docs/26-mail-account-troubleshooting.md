@@ -6,6 +6,16 @@
 - **Neden (HA kaynak kodu):** Core, add-on’a giden isteklere `X-Ingress-Path: /api/hassio_ingress/{token}` ekler (`homeassistant/components/hassio/ingress.py`). Adres çubuğundaki **`/app/<slug>`** ile bu önek **aynı değildir**. `<base href>` yanlışlıkla `/app/...` veya `location.pathname` ile ayarlanırsa `./assets/...` yanlış host path’e gider.
 - **Çözüm:** Sunucu `index.html` içinde `<base href>` değerini **öncelikle `X-Ingress-Path`** ile üretir. Ayrıntı: `docs/27-home-assistant-ingress-urls.md`.
 
+## `?oauth=not_configured` ile 404 (1.0.24)
+
+- **Neden:** Yönlendirme yanlışlıkla `.../hassio_ingress/TOKEN?oauth=...` (TOKEN sonunda `/` yok) olabiliyordu; HA bu path’te 404 döner.
+- **Çözüm:** `.../TOKEN/?oauth=not_configured` (sürüm 1.0.24+). Asıl kalıcı çözüm: add-on’da Gmail OAuth Client ID/Secret tanımlamak.
+
+## Gmail “bağlan” tıklanınca URL açılmıyor (1.0.23)
+
+- **Neden:** Home Assistant Ingress iframe’i bazen varsayılan `<a href>` ile yeni sekmeyi engeller.
+- **Çözüm:** Arayüz `window.open` dener; engellenirse aynı sekmede yönlendirir.
+
 ## Gmail OAuth 404 (1.0.17)
 
 - **Semptom:** “Gmail’e bağlan” tıklanınca `404: Not Found` (genelde HA Ingress altında).

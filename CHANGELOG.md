@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.24] – 2026-02-21
+
+### Düzeltmeler
+- Gmail OAuth not_configured redirect: trailing slash before query (HA ingress 404 fix).
+
+---
+
 ## [1.0.23] – 2026-02-21
 
 ### Düzeltmeler

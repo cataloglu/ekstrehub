@@ -47,6 +47,19 @@ def test_spa_injects_base_from_x_ingress_path(monkeypatch) -> None:
         assert 'src="/api/hassio_ingress/abc123/assets/' in response.text
 
 
+def test_gmail_oauth_not_configured_redirect_uses_ingress_trailing_slash(monkeypatch) -> None:
+    """HA returns 404 for /api/hassio_ingress/TOKEN?x= — need .../TOKEN/?x=."""
+    _set_base_env(monkeypatch)
+    client = TestClient(app)
+    r = client.get(
+        "/api/oauth/gmail/start",
+        follow_redirects=False,
+        headers={"X-Ingress-Path": "/api/hassio_ingress/abc123"},
+    )
+    assert r.status_code == 307
+    assert r.headers.get("location") == "/api/hassio_ingress/abc123/?oauth=not_configured"
+
+
 def test_spa_ingress_base_from_referer_when_header_stripped(monkeypatch) -> None:
     """Some proxies strip X-Ingress-Path; Referer may still contain the ingress path."""
     _set_base_env(monkeypatch)

@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.24 (2026-02-21)
+
+### Düzeltmeler
+- **OAuth yapılandırılmadı yönlendirmesi**: `?oauth=not_configured` öncesi path’te sondaki `/` eksikti (`.../TOKEN?oauth=...`). Home Assistant Ingress bu URL’de **404** veriyor; artık `.../TOKEN/?oauth=...`.
+
+---
+
 ## 1.0.23 (2026-02-21)
 
 ### Düzeltmeler

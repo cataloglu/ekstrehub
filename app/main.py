@@ -766,7 +766,10 @@ async def gmail_oauth_start(request: Request, label: str = "Gmail Hesabı"):
     settings = get_settings()
     if not settings.gmail_oauth_client_id or not settings.gmail_oauth_client_secret:
         _, base_path = _oauth_base(request)
+        # Must end with / before ?query or HA ingress route 404s on .../TOKEN?oauth=...
         root = base_path.rstrip("/") or "/"
+        if not root.endswith("/"):
+            root += "/"
         return RedirectResponse(f"{root}?oauth=not_configured")
     our_callback = _oauth_redirect_uri(request)
     if settings.gmail_oauth_redirect_proxy_url:
