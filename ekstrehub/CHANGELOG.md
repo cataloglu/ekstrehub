@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.29 (2026-02-21)
+
+### Dokümantasyon
+- **Gmail OAuth (Google resmi)**: Mac Mail ile karşılaştırma, Google doküman linkleri, `gmail-oauth2-tools` — `docs/30-google-oauth-mac-mail-vs-ekstrehub.md` + add-on `DOCS.md` güncellendi.
+
+---
+
 ## 1.0.28 (2026-02-21)
 
 ### Düzeltmeler

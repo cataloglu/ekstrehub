@@ -20,6 +20,16 @@ Kredi kartı ekstrelerini Gmail'den otomatik indirir, AI ile parse eder ve Home 
 
 ## Gmail OAuth (Google ile Bağlan)
 
+### Neden Mac Mail tek tık, burada ayar gerekiyor?
+
+**Mac / iPhone Mail**, Google ile **Apple’ın** kayıtlı OAuth uygulaması üzerinden bağlanır; senin Google Cloud’da proje açman gerekmez. **EkstreHub** üçüncü parti bir uygulama olduğu için Google’ın kuralı: [OAuth 2.0 web sunucu akışı](https://developers.google.com/identity/protocols/oauth2/web-server) ile **kendi istemci kimliğin** (Client ID/Secret) ve doğru **redirect URI** gerekir. Bu, Google’ın resmi modelidir; “basit / karmaşık” EkstreHub’a özel değil.
+
+Detaylı anlatım ve resmi doküman linkleri: repo içi **[docs/30-google-oauth-mac-mail-vs-ekstrehub.md](https://github.com/cataloglu/ekstrehub/blob/master/docs/30-google-oauth-mac-mail-vs-ekstrehub.md)**  
+Google’ın IMAP/XOAUTH2 sayfası: **[Gmail IMAP XOAUTH2](https://developers.google.com/workspace/gmail/imap/xoauth2-protocol)**  
+Örnek araç reposu: **[google/gmail-oauth2-tools](https://github.com/google/gmail-oauth2-tools)**
+
+---
+
 "Google ile Bağlan" butonunu kullanmak için iki yol var:
 
 ### A) Add-on yöneticisi tek OAuth client kullanıyorsa (kullanıcı hiçbir şey girmesin)

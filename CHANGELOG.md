@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.29] – 2026-02-21
+
+### Documentation
+- Gmail OAuth: official Google links, Mac Mail vs third-party explanation.
+
+---
+
 ## [1.0.28] – 2026-02-21
 
 ### Düzeltmeler
