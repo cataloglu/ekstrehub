@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.36] – 2026-03-21
+
+### Features
+- Learned per-bank regex rules after LLM success; local parse skips API when rules match. Env `EKSTREHUB_DISABLE_LEARN_RULES=1` disables training.
+
+---
+
 ## [1.0.35] – 2026-03-21
 
 ### Fixes

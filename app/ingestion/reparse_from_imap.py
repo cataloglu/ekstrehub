@@ -13,9 +13,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db.models import EmailIngested, MailAccount, StatementDocument
 from app.ingestion.gmail_oauth import refresh_access_token
+from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_learned_rules
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import runtime_from_mail_account
-from app.ingestion.statement_parser import parse_statement
+from app.ingestion.statement_parser import _detect_bank_from_text, parse_statement
 import app.app_settings as app_settings_module
 
 log = logging.getLogger(__name__)
@@ -170,6 +171,9 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
     if not bank_hint and email_row.bank_name:
         bank_hint = email_row.bank_name
 
+    bank = bank_hint or _detect_bank_from_text(text)
+    learned = load_learned_rule_dict(session, bank)
+
     llm = app_settings_module.get_llm_config()
     llm_url = llm["llm_api_url"] if llm.get("llm_enabled") else ""
 
@@ -181,7 +185,14 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
         llm_api_key=llm["llm_api_key"],
         llm_timeout_seconds=int(llm.get("llm_timeout_seconds", 120)),
         llm_min_tx_threshold=int(llm.get("llm_min_tx_threshold", 0)),
+        learned_rules=learned,
     )
+    if (
+        result
+        and "llm_parsed" in (result.parse_notes or [])
+        and len(result.transactions) > 0
+    ):
+        maybe_train_learned_rules(session, result.bank_name or bank, text, result, llm)
 
     doc.parsed_json = _result_to_json(result)
     doc.parse_status = "parsed"

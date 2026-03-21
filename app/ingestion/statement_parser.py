@@ -1,8 +1,7 @@
-"""Statement parser — AI-first, no hardcoded bank rules.
+"""Statement parser — learned regex first (per bank), then LLM.
 
-All PDF text is sent to the configured LLM (e.g. gpt-4o-mini).
-The LLM is expected to handle any Turkish bank format automatically.
-A minimal fallback is used only when the LLM is unreachable.
+If a bank has stored regex rules from a prior successful LLM parse, those run locally (no API).
+Otherwise PDF text goes to the configured LLM. A minimal fallback is used if LLM is unreachable.
 """
 from __future__ import annotations
 
@@ -151,17 +150,15 @@ def parse_statement(
     llm_api_key: str = "",
     llm_timeout_seconds: int = 60,
     llm_min_tx_threshold: int = 0,
+    learned_rules: dict[str, Any] | None = None,
+    skip_learned_rules: bool = False,
 ) -> ParsedStatement:
-    """Parse statement text using LLM (AI-first, no hardcoded bank rules).
+    """Parse statement text: optional learned local regex, then LLM.
 
     Args:
-        text:                  Full extracted text from the PDF.
-        bank_name:             Bank name hint from email subject/sender (may be None).
-        llm_api_url:           OpenAI-compatible API base URL (empty = skip LLM).
-        llm_model:             LLM model name.
-        llm_api_key:           API key (empty for Ollama).
-        llm_timeout_seconds:   Request timeout.
-        llm_min_tx_threshold:  Not used in AI-first mode (kept for API compatibility).
+        learned_rules: JSON rules from DB for this bank (regex trained after prior LLM success).
+        skip_learned_rules: If True, skip local rules and go straight to LLM.
+        llm_min_tx_threshold: Kept for API compatibility.
     """
     # Auto-detect bank from PDF text if not identified from email
     if not bank_name or bank_name.lower() in ("unknown", ""):
@@ -170,7 +167,20 @@ def parse_statement(
     if bank_name:
         log.info("bank_identified bank=%s", bank_name)
 
-    # ── LLM parsing (primary) ────────────────────────────────────────────────
+    # ── Learned local rules (no API) ───────────────────────────────────────────
+    if learned_rules and not skip_learned_rules:
+        from app.ingestion.learned_rules import try_apply_learned_rules
+
+        local = try_apply_learned_rules(text, learned_rules, bank_name)
+        if local and len(local.transactions) >= 1:
+            log.info(
+                "learned_local_parse_ok bank=%s tx=%d",
+                bank_name,
+                len(local.transactions),
+            )
+            return local
+
+    # ── LLM parsing ───────────────────────────────────────────────────────────
     if llm_api_url:
         from app.ingestion.llm_parser import parse_with_llm
         log.info("llm_parser_used bank=%s model=%s", bank_name, llm_model)

@@ -18,7 +18,8 @@ from app.ingestion.gmail_oauth import GmailOAuthError, refresh_access_token
 from app.ingestion.mail_client import IMAPMailClient
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import ImapRuntimeConfig, runtime_from_env, runtime_from_mail_account
-from app.ingestion.statement_parser import parse_statement
+from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_learned_rules
+from app.ingestion.statement_parser import _detect_bank_from_text, parse_statement
 
 log = logging.getLogger(__name__)
 
@@ -170,7 +171,10 @@ class MailIngestionService:
                         elif doc_type == "pdf":
                             try:
                                 text = extract_text_from_pdf(attachment.content)
-                                bank = self._detect_bank_name(message.sender, message.subject)
+                                bank = self._detect_bank_name(message.sender, message.subject) or _detect_bank_from_text(
+                                    text
+                                )
+                                _learned = load_learned_rule_dict(session, bank)
                                 # Always read LLM config at parse-time so UI changes take effect immediately
                                 _llm = app_settings_module.get_llm_config()
                                 _llm_url = _llm["llm_api_url"] if _llm.get("llm_enabled") else ""
@@ -182,7 +186,20 @@ class MailIngestionService:
                                     llm_api_key=_llm["llm_api_key"],
                                     llm_timeout_seconds=_llm["llm_timeout_seconds"],
                                     llm_min_tx_threshold=_llm.get("llm_min_tx_threshold", 0),
+                                    learned_rules=_learned,
                                 )
+                                if (
+                                    result
+                                    and "llm_parsed" in (result.parse_notes or [])
+                                    and len(result.transactions) > 0
+                                ):
+                                    maybe_train_learned_rules(
+                                        session,
+                                        result.bank_name or bank,
+                                        text,
+                                        result,
+                                        _llm,
+                                    )
 
                                 # ── Katman 3: İçerik bazlı duplicate kontrolü ──
                                 # Banka + dönem + toplam tutar aynıysa başka bir

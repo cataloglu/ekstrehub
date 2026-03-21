@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.36 (2026-03-21)
+
+### Özellikler
+- **Öğrenilmiş yerel parser**: LLM bir ekstreyi başarıyla çözdükten sonra aynı banka için regex JSON üretilir (`learned_parser_rules` tablosu). Sonraki PDF’lerde önce bu kurallar denenir — **API çağrısı yok**; eşleşmezse yine LLM’e düşülür. Eğitimi kapatmak: `EKSTREHUB_DISABLE_LEARN_RULES=1`.
+
+---
+
 ## 1.0.35 (2026-03-21)
 
 ### Düzeltmeler
