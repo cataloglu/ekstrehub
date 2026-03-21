@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.28] – 2026-02-21
+
+### Düzeltmeler
+- Gmail: no fake OAuth link when Client ID/Secret missing (no redirect back to HA).
+
+---
+
+## [1.0.27] – 2026-02-21
+
+### İyileştirmeler
+- Gmail OAuth prompt select_account; UI copy clarifies Google-hosted sign-in.
+
+---
+
 ## [1.0.26] – 2026-02-21
 
 ### Düzeltmeler

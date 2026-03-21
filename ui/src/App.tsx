@@ -1850,35 +1850,54 @@ export function App() {
                   {formProvider === "gmail" && (
                     <>
                       <p className="muted" style={{ gridColumn: "1 / -1", marginBottom: 0 }}>
-                        <strong>«Gmail’e bağlan»</strong> tıklanınca Google’ın sitesinde (
-                        <em>Sign in with Google — hesap seç, postaya izin ver</em>) ekranı açılır; EkstreHub bu pencereyi kopyalamaz, seni{" "}
-                        <code>accounts.google.com</code> adresine yönlendirir. EkstreHub Gmail şifreni saklamaz.
+                        Google’da hesap seçme ekranı <code>accounts.google.com</code> üzerinden açılır (EkstreHub içinde
+                        çizilmez). Bunun için add-on’da OAuth istemcisi tanımlı olmalı.
                       </p>
-                      <a
+                      {health && !health.gmail_oauth_configured ? (
+                        <p
+                          className="muted"
+                          style={{
+                            gridColumn: "1 / -1",
+                            margin: "0.35rem 0 0",
+                            padding: "0.65rem 0.75rem",
+                            borderRadius: 8,
+                            border: "1px solid rgba(220, 160, 60, 0.55)",
+                            background: "rgba(220, 160, 60, 0.12)",
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          <strong>OAuth yok → Google’a gidilmez.</strong> Aşağıdaki buton artık seni HA içinde
+                          döndürmez; önce{" "}
+                          <strong>
+                            Eklentiler → EkstreHub → Yapılandırma → gmail_oauth_client_id + gmail_oauth_client_secret
+                          </strong>{" "}
+                          (Google Cloud Console) doldur, kaydet, add-on’u yeniden başlat.
+                        </p>
+                      ) : null}
+                      <button
+                        type="button"
                         className="btn btnGoogle"
-                        href={gmailOAuthUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => {
-                          e.preventDefault();
+                        disabled={health === null}
+                        style={{ gridColumn: "1 / -1", justifySelf: "start" }}
+                        onClick={() => {
+                          if (!health?.gmail_oauth_configured) {
+                            setErrorMessage(
+                              "Google girişi için add-on Yapılandırması’nda gmail_oauth_client_id ve gmail_oauth_client_secret gerekli. " +
+                                "Home Assistant → Eklentiler → EkstreHub → Yapılandırma. Google Cloud Console’da OAuth istemcisi oluştur; " +
+                                "Yönlendirme URI için bu add-on’un «redirect URI» bilgisini (API: /api/oauth/gmail/redirect-uri) kullan."
+                            );
+                            pushLog("info", "auth", "Gmail OAuth: add-on’da Client ID/Secret yok.");
+                            return;
+                          }
                           openOAuthInNewTabOrNavigate(gmailOAuthUrl);
                         }}
                       >
-                        Gmail’e bağlan (tarayıcıda aç)
-                      </a>
-                      {!health?.gmail_oauth_configured && (
-                        <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.88rem" }}>
-                          Bu ekranın açılması için add-on <strong>Yapılandırma</strong>’da{" "}
-                          <code>gmail_oauth_client_id</code> ve <code>gmail_oauth_client_secret</code> (Google Cloud
-                          Console’da bir OAuth istemcisi) tanımlı olmalı; yoksa Google’a gidilmez. O zaman yönetici
-                          kurar veya aşağıdan uygulama şifresi ile devam edersin.
-                        </p>
-                      )}
-                      {health?.gmail_oauth_configured && (
-                        <p className="muted" style={{ gridColumn: "1 / -1", fontSize: "0.88rem" }}>
-                          OAuth hazır: butona basınca yeni sekmede Google hesabını seçip posta iznini verirsin.
-                        </p>
-                      )}
+                        {health === null
+                          ? "Yükleniyor…"
+                          : health.gmail_oauth_configured
+                            ? "Gmail’e bağlan (Google’da aç)"
+                            : "Önce OAuth’u add-on’da ayarla (Google’a şu an gidilmez)"}
+                      </button>
                       <button
                         type="button"
                         className="btn"

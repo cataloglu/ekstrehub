@@ -1,5 +1,20 @@
 # EkstreHub Changelog
 
+## 1.0.28 (2026-02-21)
+
+### Düzeltmeler
+- **Gmail OAuth yokken** «Gmail’e bağlan» artık `/api/oauth/gmail/start` adresine **gitmiyor** (HA’ya `?oauth=not_configured` ile dönme yok). Üstte uyarı + buton yalnızca mesaj gösterir; OAuth add-on’da tanımlıysa Google’a açılır.
+
+---
+
+## 1.0.27 (2026-02-21)
+
+### İyileştirmeler
+- Gmail OAuth: Google URL’sine `prompt=select_account consent` (hesap seç + izin; diğer uygulamalardaki gibi).
+- Mail & Sync: «Gmail’e bağlan»ın **Google’ın sitesinde** hesap seçme ekranı açtığı ve OAuth için add-on’da Client ID/Secret gerektiği metinde açıklandı.
+
+---
+
 ## 1.0.26 (2026-02-21)
 
 ### Düzeltmeler
