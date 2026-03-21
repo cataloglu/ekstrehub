@@ -153,15 +153,28 @@ export function apiUrlPath(path: string): string {
 }
 
 /**
- * Gmail OAuth (Ingress iframe): varsayılan `<a href target="_blank">` çoğu zaman çalışmaz
- * (sandbox / üst çerçeve). Önce yeni sekme, engellenirse aynı sekmede yönlendirme.
+ * Gmail OAuth (Ingress iframe): yeni sekmede aç; popup engellenirse aynı pencerede git.
+ *
+ * ÖNEMLİ: `window.open(..., "noopener")` çoğu tarayıcıda **her zaman `null` döndürür**;
+ * önceki kod bunu “engellendi” sanıp `location.assign` yapıyordu → Google OAuth hiç yeni sekmede
+ * açılmıyordu. `noopener`’ı açılan pencerede `w.opener = null` ile sağlıyoruz.
  */
 export function openOAuthInNewTabOrNavigate(url: string): void {
   try {
-    const w = window.open(url, "_blank", "noopener,noreferrer");
-    if (w == null) {
-      window.location.assign(url);
+    let w: Window | null = window.open(url, "_blank");
+    if (w) {
+      w.opener = null;
+      return;
     }
+    const topWin = window.top;
+    if (topWin && topWin !== window) {
+      w = topWin.open(url, "_blank");
+      if (w) {
+        w.opener = null;
+        return;
+      }
+    }
+    window.location.assign(url);
   } catch {
     window.location.assign(url);
   }

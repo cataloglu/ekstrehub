@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.26 (2026-02-21)
+
+### Düzeltmeler
+- **Gmail OAuth yeni sekme**: `window.open(..., "noopener")` tarayıcıda `null` döndüğü için kod yanlışlıkla iframe’i `location.assign` ile değiştiriyordu; Google girişi açılmıyordu. `noopener` kaldırıldı, `w.opener = null` ile güvenlik korunuyor; gerekirse `window.top.open` deneniyor.
+
+---
+
 ## 1.0.25 (2026-02-21)
 
 ### İyileştirmeler
