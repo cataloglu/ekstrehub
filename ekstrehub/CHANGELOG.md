@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.39 (2026-03-21)
+
+### Düzeltmeler
+- **LLM zaman aşımı**: Varsayılan istek süresi **180 sn** (60 sn sık yetmiyordu). `llm_timeout` / `llm_failed` notları ayrıldı; zaman aşımında ekstre **`parse_failed`** ve reparse **başarısız** sayılır (önceden yanlışlıkla başarılı görünüyordu).
+- **Öğrenilmiş regex**: En az **1** satır eşleşmesi yeterli (önceki `need>=3` DenizBank gibi durumlarda `learn_rules_too_few_matches` engelliyordu).
+
+---
+
 ## 1.0.38 (2026-03-21)
 
 ### Özellikler

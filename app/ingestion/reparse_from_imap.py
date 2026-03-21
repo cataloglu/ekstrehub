@@ -16,7 +16,7 @@ from app.ingestion.gmail_oauth import refresh_access_token
 from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_learned_rules
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import runtime_from_mail_account
-from app.ingestion.statement_parser import _detect_bank_from_text, parse_statement
+from app.ingestion.statement_parser import _detect_bank_from_text, is_llm_failure_empty, parse_statement
 import app.app_settings as app_settings_module
 
 log = logging.getLogger(__name__)
@@ -195,8 +195,22 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
         maybe_train_learned_rules(session, result.bank_name or bank, text, result, llm)
 
     doc.parsed_json = _result_to_json(result)
-    doc.parse_status = "parsed"
+    if is_llm_failure_empty(result):
+        doc.parse_status = "parse_failed"
+    else:
+        doc.parse_status = "parsed"
     session.commit()
+
+    if is_llm_failure_empty(result):
+        err = "llm_timeout" if "llm_timeout" in (result.parse_notes or []) else "llm_failed"
+        return {
+            "doc_id": doc.id,
+            "ok": False,
+            "error": err,
+            "bank_name": result.bank_name,
+            "transaction_count": 0,
+            "parse_notes": result.parse_notes,
+        }
 
     return {
         "doc_id": doc.id,
@@ -245,7 +259,13 @@ def collect_doc_ids_for_scope(session: Session, scope: str, doc_ids: list[int]) 
                     notes = pj.get("parse_notes") or []
                 except Exception:
                     n = 0
-            if n == 0 or "llm_required" in notes or "no_transactions_found" in notes:
+            if (
+                n == 0
+                or "llm_timeout" in notes
+                or "llm_failed" in notes
+                or "no_transactions_found" in notes
+                or "llm_required" in notes  # eski kayıtlar
+            ):
                 out.append(d.id)
         return out
 

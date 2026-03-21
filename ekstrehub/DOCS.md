@@ -15,7 +15,7 @@ Kredi kartı ekstrelerini Gmail'den otomatik indirir, AI ile parse eder ve Home 
 1. **Mail hesabı ekle / sil** — **Mail & Sync** sekmesinde üstten hesabı seç; ayarların altında **Bu mail hesabını sil** ile silebilirsin (onay sorar). Ekstreler silinmez; sadece o hesap bağlantısı kalkar.
 2. **Gmail** — Telefon/Mac Mail gibi: **Gmail’e bağlan (tarayıcıda aç)** ile Google oturum ekranı (OAuth). OAuth add-on’da ayarlı değilse açılır bölümden **uygulama şifresi ile elle ekle** kullanılabilir.
 3. **Diğer sağlayıcılar** — Aynı sekmeden Outlook/özel IMAP ve şifre veya gelişmiş OAuth token.
-4. **AI Parser ayarla** — Ayarlar → **AI Parser**: API URL + model + anahtar (OpenAI önerilir)
+4. **AI Parser ayarla** — Ayarlar → **AI Parser**: API URL + model + anahtar (OpenAI önerilir). Büyük PDF’lerde (özellikle İş Bankası) **zaman aşımı** alırsan süreyi **240–300 sn** yapıp kaydet; aynı ekstrede **Yeniden çöz** dene.
 5. **Sync et** — İlk mailleri indir
 6. **AI’yi sonradan açtıysan** — Eski ekstreler otomatik yeniden işlenmez. Ayarlar → AI Parser bölümünde **«Boş / hatalı ekstreleri yeniden çöz»** (veya gerekirse **Tüm PDF’leri yeniden çöz**); sunucu maili tekrar IMAP’ten alıp LLM ile parse eder.
 7. **Öğrenilmiş parser (1.0.36+)** — Bir banka için LLM ilk kez başarılı olduktan sonra sistem o formata uygun **regex kuralları** üretip saklar. Sonraki ayların ekstrelerinde **önce yerel regex** denenir (OpenAI çağrısı yok). Format değişirse eşleşme düşer, otomatik yine LLM devreye girer ve kurallar güncellenir. Eğitimi kapatmak: ortam değişkeni `EKSTREHUB_DISABLE_LEARN_RULES=1`.

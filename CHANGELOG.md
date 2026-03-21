@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.39] – 2026-03-21
+
+### Fixes
+- LLM timeout default 180s; `parse_failed` + reparse `ok:false` on timeout/failure; learned rules save if regex matches ≥1 line.
+
+---
+
 ## [1.0.38] – 2026-03-21
 
 ### Features

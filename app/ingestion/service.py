@@ -19,7 +19,7 @@ from app.ingestion.mail_client import IMAPMailClient
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import ImapRuntimeConfig, runtime_from_env, runtime_from_mail_account
 from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_learned_rules
-from app.ingestion.statement_parser import _detect_bank_from_text, parse_statement
+from app.ingestion.statement_parser import _detect_bank_from_text, is_llm_failure_empty, parse_statement
 
 log = logging.getLogger(__name__)
 
@@ -235,7 +235,7 @@ class MailIngestionService:
                                         summary.duplicate_documents += 1
                                         continue
 
-                                parse_status = "parsed"
+                                parse_status = "parse_failed" if is_llm_failure_empty(result) else "parsed"
                                 parsed_json = json.dumps(
                                     {
                                         "bank_name": result.bank_name,

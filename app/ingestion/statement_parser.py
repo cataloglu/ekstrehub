@@ -36,6 +36,14 @@ class ParsedStatement:
     parse_notes: list[str] = field(default_factory=list)
 
 
+def is_llm_failure_empty(ps: ParsedStatement) -> bool:
+    """True when LLM was attempted but produced no transactions (timeout / API error)."""
+    if ps.transactions:
+        return False
+    notes = ps.parse_notes or []
+    return "llm_timeout" in notes or "llm_failed" in notes
+
+
 # ── Bank detection (for logging/context only, no parsing rules) ───────────────
 
 _BANK_KEYWORDS: list[tuple[str, str]] = [
@@ -148,7 +156,7 @@ def parse_statement(
     llm_api_url: str = "",
     llm_model: str = "gpt-4o-mini",
     llm_api_key: str = "",
-    llm_timeout_seconds: int = 60,
+    llm_timeout_seconds: int = 180,
     llm_min_tx_threshold: int = 0,
     learned_rules: dict[str, Any] | None = None,
     skip_learned_rules: bool = False,
@@ -184,7 +192,7 @@ def parse_statement(
     if llm_api_url:
         from app.ingestion.llm_parser import parse_with_llm
         log.info("llm_parser_used bank=%s model=%s", bank_name, llm_model)
-        llm_data = parse_with_llm(
+        llm_data, llm_err = parse_with_llm(
             text=text,
             api_url=llm_api_url,
             model=llm_model,
@@ -206,10 +214,21 @@ def parse_statement(
             )
             return result
 
-    # ── Fallback: LLM unavailable / failed ───────────────────────────────────
-    log.warning("llm_unavailable_or_failed bank=%s — returning empty statement", bank_name)
+        # LLM was configured but call failed (timeout, HTTP, invalid JSON, …)
+        log.warning("llm_unavailable_or_failed bank=%s err=%s — empty statement", bank_name, llm_err)
+        fallback = ParsedStatement()
+        fallback.bank_name = bank_name or "Bilinmeyen Banka"
+        fallback.card_number = _extract_card_number(text)
+        if llm_err == "timeout":
+            fallback.parse_notes = ["llm_timeout", "no_transactions_found"]
+        else:
+            fallback.parse_notes = ["llm_failed", "no_transactions_found"]
+        return fallback
+
+    # ── No LLM URL (disabled / not configured) ───────────────────────────────
+    log.warning("llm_not_configured bank=%s — returning empty statement", bank_name)
     fallback = ParsedStatement()
     fallback.bank_name = bank_name or "Bilinmeyen Banka"
     fallback.card_number = _extract_card_number(text)
-    fallback.parse_notes = ["llm_required", "no_transactions_found"]
+    fallback.parse_notes = ["no_llm_configured", "no_transactions_found"]
     return fallback

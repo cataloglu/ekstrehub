@@ -1425,7 +1425,15 @@ export function App() {
                                   AI
                                 </span>
                               )}
-                              {stmt.parse_notes.includes("no_transactions_found") && (
+                              {stmt.parse_notes.includes("llm_timeout") && (
+                                <span
+                                  className="parseNoteBadge parseNoteError"
+                                  title="LLM zaman aşımı — Ayarlar → AI Parser’da süreyi 240–300 sn yapıp Yeniden çöz"
+                                >
+                                  ⏱ LLM timeout
+                                </span>
+                              )}
+                              {stmt.parse_notes.includes("no_transactions_found") && !stmt.parse_notes.includes("llm_timeout") && (
                                 <span className="parseNoteBadge parseNoteError" title="İşlem bulunamadı — PDF formatı tanınamıyor olabilir">
                                   ! İşlem yok
                                 </span>

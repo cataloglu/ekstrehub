@@ -21,7 +21,7 @@ _DEFAULT: dict[str, Any] = {
     "llm_api_url": "",               # e.g. https://api.openai.com/v1
     "llm_api_key": "",               # sk-... for OpenAI, empty for Ollama
     "llm_model": "gpt-4o-mini",     # model name
-    "llm_timeout_seconds": 60,       # request timeout
+    "llm_timeout_seconds": 180,      # büyük PDF / OpenAI gecikmesi (60 sık yetmez)
     "llm_enabled": True,             # whether to use LLM fallback at all
     "llm_min_tx_threshold": 0,       # run LLM also if regex finds fewer tx than this (0 = only on 0 tx)
 }

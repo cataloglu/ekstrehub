@@ -191,8 +191,12 @@ def parse_with_llm(
     model: str,
     api_key: str = "",
     timeout_seconds: int = 120,
-) -> dict[str, Any] | None:
-    """Try to parse statement with LLM. Returns None on any failure (safe fallback)."""
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Try to parse statement with LLM.
+
+    Returns (data, None) on success, or (None, reason) on failure.
+    reason is \"timeout\" for read timeouts, \"failed\" for other errors.
+    """
     try:
         result = call_llm(text, api_url, model, api_key, timeout_seconds)
         log.info(
@@ -201,7 +205,10 @@ def parse_with_llm(
             result.get("bank_name"),
             len(result.get("transactions", [])),
         )
-        return result
+        return result, None
     except Exception as exc:
         log.warning("llm_parse_failed model=%s reason=%s", model, exc)
-        return None
+        err = str(exc).lower()
+        if "timed out" in err or "timeout" in err:
+            return None, "timeout"
+        return None, "failed"

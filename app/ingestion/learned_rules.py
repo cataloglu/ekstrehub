@@ -273,9 +273,15 @@ def generate_rules_via_llm(
 
     cnt = _count_rule_matches(text, rules)
     ref_n = max(1, min(3, len(parsed.transactions)))
-    if cnt < ref_n:
-        log.warning("learn_rules_too_few_matches got=%d need>=%d", cnt, ref_n)
+    if cnt < 1:
+        log.warning("learn_rules_zero_matches got=%d need>=1", cnt)
         return None
+    if cnt < ref_n:
+        log.warning(
+            "learn_rules_few_matches got=%d ideal>=%d saving_anyway",
+            cnt,
+            ref_n,
+        )
     return rules
 
 
