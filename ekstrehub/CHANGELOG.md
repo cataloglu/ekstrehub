@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.20 (2026-02-21)
+
+### Düzeltmeler
+- **HA Ingress / siyah 404 (kök neden)**: Add-on konteynerine çoğu zaman `GET /` gelir; `X-Ingress-Path` eksik veya proxy’de kaybolabiliyor. `<base href>` artık **tarayıcıdaki** `location.pathname` ile (inline script + Vite `transformIndexHtml`) ayarlanıyor — toplulukta Frigate vb. için önerilen yöntem.
+
+---
+
 ## 1.0.19 (2026-02-21)
 
 ### Düzeltmeler

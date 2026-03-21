@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.20] – 2026-02-21
+
+### Düzeltmeler
+- HA Ingress: `<base href>` tarayıcıda `location.pathname` (Vite plugin); sunucu path’i artık tek başına kullanılmıyor.
+
+---
+
 ## [1.0.19] – 2026-02-21
 
 ### Düzeltmeler
