@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.22 (2026-02-21)
+
+### Düzeltmeler
+- **Ingress 404 (kalıcı)**: `index.html` içindeki `./assets/...` yolları sunucuda **`/api/hassio_ingress/{token}/assets/...`** olarak yeniden yazılıyor — `<base>` çözümlemesine tek başına güvenilmiyor. `X-Ingress-Path` yoksa **Referer** içinden `hassio_ingress` veya `/app/<slug>` çıkarımı.
+
+---
+
 ## 1.0.21 (2026-02-21)
 
 ### Düzeltmeler

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.22] – 2026-02-21
+
+### Düzeltmeler
+- Ingress: mutlak asset URL rewrite + Referer fallback for stripped `X-Ingress-Path`.
+
+---
+
 ## [1.0.21] – 2026-02-21
 
 ### Düzeltmeler

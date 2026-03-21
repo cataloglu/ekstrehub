@@ -44,3 +44,17 @@ def test_spa_injects_base_from_x_ingress_path(monkeypatch) -> None:
     response = client.get("/", headers={"X-Ingress-Path": ingress_path})
     if response.status_code == 200:
         assert '<base href="/api/hassio_ingress/abc123/">' in response.text
+        assert 'src="/api/hassio_ingress/abc123/assets/' in response.text
+
+
+def test_spa_ingress_base_from_referer_when_header_stripped(monkeypatch) -> None:
+    """Some proxies strip X-Ingress-Path; Referer may still contain the ingress path."""
+    _set_base_env(monkeypatch)
+    client = TestClient(app)
+    response = client.get(
+        "/",
+        headers={"Referer": "https://example.com/api/hassio_ingress/xyz789/"},
+    )
+    if response.status_code == 200:
+        assert '<base href="/api/hassio_ingress/xyz789/">' in response.text
+        assert 'src="/api/hassio_ingress/xyz789/assets/' in response.text

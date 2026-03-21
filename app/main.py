@@ -9,6 +9,8 @@ import html
 import json
 import logging
 import pathlib
+import re
+from urllib.parse import urlparse
 from time import perf_counter
 from typing import Literal
 import uvicorn
@@ -969,16 +971,28 @@ _FRONTEND_DIR = pathlib.Path(__file__).parent.parent / "ui" / "dist"
 def _ingress_base_href(request: Request) -> str:
     """Directory path for `<base href>` (trailing slash).
 
-    Home Assistant Core sets **X-Ingress-Path** to the canonical ingress prefix:
-    `/api/hassio_ingress/{token}` (see `homeassistant/components/hassio/ingress.py`).
-    The browser address bar may show `/app/<slug>` instead; using **location.pathname**
-    for `<base href>` breaks relative `./assets/` — assets must load under the
-    **hassio_ingress** path the proxy actually uses.
+    Home Assistant Core sets **X-Ingress-Path** to `/api/hassio_ingress/{token}`
+    (`homeassistant/components/hassio/ingress.py`). Some reverse proxies strip it;
+    we also parse **Referer** when it contains `hassio_ingress` or `/app/<slug>`.
     """
     ingress_path = request.headers.get("x-ingress-path", "").strip()
     if ingress_path:
         return ingress_path if ingress_path.endswith("/") else ingress_path + "/"
-    # No header: direct :8000 access or stripped proxy — best effort
+
+    referer = (request.headers.get("referer") or request.headers.get("referrer") or "").strip()
+    if referer:
+        try:
+            rpath = urlparse(referer).path or ""
+            if "/api/hassio_ingress/" in rpath:
+                m = re.search(r"(/api/hassio_ingress/[^/]+)", rpath)
+                if m:
+                    return m.group(1) + "/"
+            rparts = [p for p in rpath.split("/") if p]
+            if len(rparts) >= 2 and rparts[0] == "app":
+                return "/" + "/".join(rparts[:2]) + "/"
+        except Exception:
+            pass
+
     raw_path = request.url.path.rstrip("/") or "/"
     parts = [p for p in raw_path.split("/") if p]
     if len(parts) >= 2 and parts[0] == "app":
@@ -988,6 +1002,17 @@ def _ingress_base_href(request: Request) -> str:
     if len(parts) >= 3 and parts[0] == "api" and parts[1] == "hassio_ingress":
         return "/" + "/".join(parts[:3]) + "/"
     return "/"
+
+
+def _rewrite_ingress_asset_urls(page_html: str, base_href: str) -> str:
+    """Turn `./assets/...` into `{base}assets/...` so JS/CSS load without relying on <base>."""
+    if base_href == "/":
+        return page_html
+    page_html = page_html.replace('src="./assets/', f'src="{base_href}assets/')
+    page_html = page_html.replace("src='./assets/", f"src='{base_href}assets/")
+    page_html = page_html.replace('href="./assets/', f'href="{base_href}assets/')
+    page_html = page_html.replace("href='./assets/", f"href='{base_href}assets/")
+    return page_html
 
 
 if _FRONTEND_DIR.is_dir():
@@ -1009,6 +1034,7 @@ if _FRONTEND_DIR.is_dir():
         base_href = _ingress_base_href(request)
         base_tag = f'<base href="{html.escape(base_href, quote=True)}">'
         page_html = page_html.replace("<head>", f"<head>\n    {base_tag}", 1)
+        page_html = _rewrite_ingress_asset_urls(page_html, base_href)
         return HTMLResponse(page_html)
 
 
