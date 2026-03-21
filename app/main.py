@@ -28,7 +28,12 @@ from app.ingestion.service import MailIngestionService
 from app.auto_sync import get_auto_sync_status, update_settings as update_auto_sync_settings, run_scheduler
 import app.app_settings as app_settings
 from app.logging_utils import configure_logging, log_event
-from app.system_reset import RESET_CONFIRM_PHRASE, reset_ingestion_data
+from app.system_reset import (
+    CLEAR_LEARNED_RULES_CONFIRM_PHRASE,
+    RESET_CONFIRM_PHRASE,
+    clear_learned_parser_rules,
+    reset_ingestion_data,
+)
 from app.schemas.ingestion import (
     IngestionRunItemResponse,
     IngestionRunListResponse,
@@ -771,6 +776,35 @@ async def system_reset_ingestion(request: Request):
             category="system",
             request_id=getattr(request.state, "request_id", None),
             deleted=result.get("deleted"),
+        )
+        return result
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.post("/api/system/clear-learned-rules")
+async def system_clear_learned_rules(request: Request):
+    """Test: delete only learned_parser_rules. Body: { \"confirm\": \"KURALLAR\" }."""
+    body = await request.json()
+    confirm = (body.get("confirm") or "").strip()
+    if confirm != CLEAR_LEARNED_RULES_CONFIRM_PHRASE:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "confirm_required",
+                "message": f'Onay için tam olarak "{CLEAR_LEARNED_RULES_CONFIRM_PHRASE}" yazın.',
+            },
+        )
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            result = clear_learned_parser_rules(session)
+        log_event(
+            request_logger,
+            "learned_parser_rules_cleared",
+            category="system",
+            request_id=getattr(request.state, "request_id", None),
+            deleted=result.get("deleted_learned_parser_rules"),
         )
         return result
     except (OperationalError, SQLAlchemyError) as exc:

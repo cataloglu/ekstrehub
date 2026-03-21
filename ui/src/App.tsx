@@ -25,6 +25,8 @@ import {
   deleteStatementsBulk,
   resetIngestionData,
   RESET_INGESTION_CONFIRM_PHRASE,
+  clearLearnedParserRules,
+  CLEAR_LEARNED_RULES_CONFIRM_PHRASE,
   type AutoSyncSettings,
   type LlmSettings,
   type HealthResponse,
@@ -132,6 +134,9 @@ export function App() {
   const [systemResetOpen, setSystemResetOpen] = useState(false);
   const [systemResetInput, setSystemResetInput] = useState("");
   const [isResettingSystem, setIsResettingSystem] = useState(false);
+  const [clearLearnedOpen, setClearLearnedOpen] = useState(false);
+  const [clearLearnedInput, setClearLearnedInput] = useState("");
+  const [isClearingLearned, setIsClearingLearned] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
   const [feeMode, setFeeMode] = useState(false);
   const [activityLog, setActivityLog] = useState<ActivityLogResponse | null>(null);
@@ -342,6 +347,27 @@ export function App() {
       pushLog("error", "system", e instanceof Error ? e.message : String(e));
     } finally {
       setIsResettingSystem(false);
+    }
+  }
+
+  async function executeClearLearnedRules() {
+    if (clearLearnedInput !== CLEAR_LEARNED_RULES_CONFIRM_PHRASE) return;
+    setIsClearingLearned(true);
+    setErrorMessage("");
+    try {
+      const r = await clearLearnedParserRules(clearLearnedInput);
+      setClearLearnedOpen(false);
+      setClearLearnedInput("");
+      setSyncInfo(
+        `Öğrenilmiş parser kuralları silindi (${r.deleted_learned_parser_rules} satır). `
+        + "Ekstreleri LLM ile yeniden denemek için AI Parser → «Boş/hatalı…» veya Ekstreler’de «Yeniden çöz».",
+      );
+      pushLog("info", "parser", `learned rules cleared n=${r.deleted_learned_parser_rules}`);
+      await reloadCoreData();
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsClearingLearned(false);
     }
   }
 
@@ -2900,6 +2926,28 @@ export function App() {
                       Sıfırlamayı başlat…
                     </button>
                   </div>
+
+                  <div className="testZone" style={{ marginTop: 22 }}>
+                    <h3 className="testZoneTitle">Test: öğrenilmiş kuralları sil</h3>
+                    <p className="muted" style={{ marginBottom: 12 }}>
+                      Veritabanındaki <strong>tüm banka regex kuralları</strong> silinir; ekstre ve mail kayıtları{" "}
+                      <strong>kalır</strong>. Sonraki işlemde önce LLM (veya yeni öğrenme) kullanılır.
+                    </p>
+                    <p className="muted" style={{ marginBottom: 14 }}>
+                      Yeniden parse için: <strong>AI Parser</strong> → «Boş / hatalı ekstreleri yeniden çöz» veya{" "}
+                      <strong>Ekstreler</strong> → «↻ Yeniden çöz».
+                    </p>
+                    <button
+                      type="button"
+                      className="btn testZoneBtn"
+                      onClick={() => {
+                        setClearLearnedInput("");
+                        setClearLearnedOpen(true);
+                      }}
+                    >
+                      Kuralları sil (onaylı)…
+                    </button>
+                  </div>
                 </section>
               )}
             </>
@@ -2954,6 +3002,59 @@ export function App() {
                 onClick={() => void executeSystemReset()}
               >
                 {isResettingSystem ? "Sıfırlanıyor…" : "Evet, sıfırla"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Clear learned rules confirm (type KURALLAR) ── */}
+      {clearLearnedOpen && (
+        <div
+          className="modalOverlay"
+          onClick={() => !isClearingLearned && setClearLearnedOpen(false)}
+        >
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confirmDialogIcon">📋</div>
+            <div className="confirmDialogTitle">Öğrenilmiş kuralları sil?</div>
+            <div className="confirmDialogBody" style={{ textAlign: "left" }}>
+              Onay için tam olarak{" "}
+              <code className="inlineCode">{CLEAR_LEARNED_RULES_CONFIRM_PHRASE}</code> yaz.
+              <label className="systemResetLabel" htmlFor="clear-learned-confirm">
+                Onay metni
+              </label>
+              <input
+                id="clear-learned-confirm"
+                className="systemResetInput"
+                type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder={CLEAR_LEARNED_RULES_CONFIRM_PHRASE}
+                value={clearLearnedInput}
+                onChange={(e) => setClearLearnedInput(e.target.value)}
+                disabled={isClearingLearned}
+              />
+            </div>
+            <div className="confirmDialogActions">
+              <button
+                type="button"
+                className="confirmBtnCancel"
+                disabled={isClearingLearned}
+                onClick={() => setClearLearnedOpen(false)}
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                className="confirmBtnDelete"
+                disabled={
+                  isClearingLearned
+                  || clearLearnedInput !== CLEAR_LEARNED_RULES_CONFIRM_PHRASE
+                }
+                onClick={() => void executeClearLearnedRules()}
+              >
+                {isClearingLearned ? "Siliniyor…" : "Evet, kuralları sil"}
               </button>
             </div>
           </div>

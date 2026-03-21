@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.40 (2026-03-21)
+
+### Özellikler
+- **Ayarlar → Sistem → Test**: Tüm **öğrenilmiş parser kurallarını** sil (onay: `KURALLAR`). Ekstreler silinmez; sonra «Yeniden çöz» veya toplu reparse ile LLM’den yeniden üretilir.
+
+---
+
 ## 1.0.39 (2026-03-21)
 
 ### Düzeltmeler

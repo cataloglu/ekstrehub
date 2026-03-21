@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.40] – 2026-03-21
+
+### Features
+- Settings → System: **Clear learned regex rules** (confirm `KURALLAR`); `POST /api/system/clear-learned-rules`.
+
+---
+
 ## [1.0.39] – 2026-03-21
 
 ### Fixes

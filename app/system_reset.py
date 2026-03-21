@@ -20,6 +20,9 @@ log = logging.getLogger(__name__)
 # UI must send this exact string (case-sensitive).
 RESET_CONFIRM_PHRASE = "SIFIRLA"
 
+# Test: drop only learned regex rows (ekstreler kalır; sonraki parse LLM’e gider).
+CLEAR_LEARNED_RULES_CONFIRM_PHRASE = "KURALLAR"
+
 
 def reset_ingestion_data(session) -> dict[str, Any]:
     """Delete statements, mail ingestion history, learned rules, audit logs. Returns counts deleted."""
@@ -44,3 +47,12 @@ def reset_ingestion_data(session) -> dict[str, Any]:
         counts,
     )
     return {"ok": True, "deleted": counts}
+
+
+def clear_learned_parser_rules(session) -> dict[str, Any]:
+    """Delete all rows from learned_parser_rules. Ekstre / mail kayıtları dokunulmaz."""
+    n = session.scalar(select(func.count()).select_from(LearnedParserRule)) or 0
+    session.execute(delete(LearnedParserRule))
+    session.commit()
+    log.info("learned_parser_rules_cleared count=%d", n)
+    return {"ok": True, "deleted_learned_parser_rules": n}
