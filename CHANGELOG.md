@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.43] – 2026-03-21
+
+### Fixes
+- Activity log includes `parse_notes` for failed parses (was only loaded for `parsed` status).
+
+---
+
 ## [1.0.42] – 2026-03-21
 
 ### Improvements

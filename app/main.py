@@ -1062,7 +1062,8 @@ async def get_activity_log(request: Request, limit: int = 80):
                 bank_name = None
                 tx_count = 0
                 parse_notes: list[str] = []
-                if doc.parsed_json and doc.parse_status == "parsed":
+                # parsed_json is stored for both parsed and parse_failed (timeout / LLM error notes)
+                if doc.parsed_json:
                     try:
                         parsed = json.loads(doc.parsed_json)
                         bank_name = parsed.get("bank_name")

@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.43 (2026-03-21)
+
+### Düzeltmeler
+- **Aktivite logu / TSV**: `parse_failed` ekstrelerde de `parse_notes` ve banka adı `parsed_json`’dan okunur (önceden sadece başarılı parse’ta dolduruluyordu; dışa aktarımda `notlar=` boş görünüyordu).
+
+---
+
 ## 1.0.42 (2026-03-21)
 
 ### İyileştirmeler
