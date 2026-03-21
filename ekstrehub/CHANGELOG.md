@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.21 (2026-02-21)
+
+### Düzeltmeler
+- **Ingress 404 (resmi HA davranışı)**: Home Assistant Core `X-Ingress-Path` değerini `/api/hassio_ingress/{token}` olarak set eder; adres çubuğundaki `/app/<slug>` ile aynı değildir. `<base href>` tekrar bu header’dan üretiliyor (1.0.20’deki `location.pathname` önceliği kaldırıldı).
+
+---
+
 ## 1.0.20 (2026-02-21)
 
 ### Düzeltmeler

@@ -36,12 +36,11 @@ def test_health_endpoint_accessible_without_credentials(monkeypatch) -> None:
     assert response.json()["status"] == "ok"
 
 
-def test_spa_includes_ingress_base_script(monkeypatch) -> None:
-    """HA Ingress: index.html sets <base> from location.pathname (inline script in ui/index.html)."""
+def test_spa_injects_base_from_x_ingress_path(monkeypatch) -> None:
+    """HA Core sets X-Ingress-Path to /api/hassio_ingress/{token} — must drive <base href>."""
     _set_base_env(monkeypatch)
     client = TestClient(app)
-    response = client.get("/")
-    # May 404 if ui/dist not built; if 200, ingress bootstrap must be present
+    ingress_path = "/api/hassio_ingress/abc123"
+    response = client.get("/", headers={"X-Ingress-Path": ingress_path})
     if response.status_code == 200:
-        assert "ingressBasePath" in response.text
-        assert "document.createElement" in response.text and "base" in response.text
+        assert '<base href="/api/hassio_ingress/abc123/">' in response.text

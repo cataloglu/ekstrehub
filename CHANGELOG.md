@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.21] – 2026-02-21
+
+### Düzeltmeler
+- HA Ingress: `<base href>` = `X-Ingress-Path` (`/api/hassio_ingress/{token}/`), not browser `/app/...`.
+
+---
+
 ## [1.0.20] – 2026-02-21
 
 ### Düzeltmeler

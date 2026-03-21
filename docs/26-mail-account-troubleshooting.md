@@ -1,10 +1,10 @@
 # Mail hesabı ekleme — bilinen sorunlar ve denetim listesi
 
-## Ingress / siyah ekran 404 (1.0.20)
+## Ingress / siyah ekran 404 (1.0.21)
 
 - **Semptom:** HA panelde add-on açılınca siyah alanda `404: Not Found` (veya boş sayfa).
-- **Neden:** Ingress arkasında add-on’a çoğu zaman `GET /` gider; `X-Ingress-Path` yoksa sunucunun `<base href>` üretmesi **yanlış** kalır (`/` → asset’ler `/assets/...` olur). Ayrıca `.../app/<slug>` sonunda `/` yoksa göreli `./assets` yanlış çözülür.
-- **Çözüm:** `index.html` içinde (build’de Vite ile) **tarayıcıdaki** `location.pathname` ile `<base href>` atanır; HA topluluğunda (Frigate, X-Ingress-Path tartışmaları) önerilen model.
+- **Neden (HA kaynak kodu):** Core, add-on’a giden isteklere `X-Ingress-Path: /api/hassio_ingress/{token}` ekler (`homeassistant/components/hassio/ingress.py`). Adres çubuğundaki **`/app/<slug>`** ile bu önek **aynı değildir**. `<base href>` yanlışlıkla `/app/...` veya `location.pathname` ile ayarlanırsa `./assets/...` yanlış host path’e gider.
+- **Çözüm:** Sunucu `index.html` içinde `<base href>` değerini **öncelikle `X-Ingress-Path`** ile üretir. Ayrıntı: `docs/27-home-assistant-ingress-urls.md`.
 
 ## Gmail OAuth 404 (1.0.17)
 

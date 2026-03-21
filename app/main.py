@@ -5,6 +5,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi import Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+import html
 import json
 import logging
 import pathlib
@@ -964,9 +965,30 @@ async def get_activity_log(request: Request, limit: int = 80):
 # In development, Vite dev server is used instead.
 _FRONTEND_DIR = pathlib.Path(__file__).parent.parent / "ui" / "dist"
 
-# Ingress `<base href>`: set in ui/index.html (inline script) from location.pathname — the
-# add-on often receives GET / only; X-Ingress-Path may be missing. Browser-side base matches
-# HA docs / community (Frigate, etc.).
+
+def _ingress_base_href(request: Request) -> str:
+    """Directory path for `<base href>` (trailing slash).
+
+    Home Assistant Core sets **X-Ingress-Path** to the canonical ingress prefix:
+    `/api/hassio_ingress/{token}` (see `homeassistant/components/hassio/ingress.py`).
+    The browser address bar may show `/app/<slug>` instead; using **location.pathname**
+    for `<base href>` breaks relative `./assets/` — assets must load under the
+    **hassio_ingress** path the proxy actually uses.
+    """
+    ingress_path = request.headers.get("x-ingress-path", "").strip()
+    if ingress_path:
+        return ingress_path if ingress_path.endswith("/") else ingress_path + "/"
+    # No header: direct :8000 access or stripped proxy — best effort
+    raw_path = request.url.path.rstrip("/") or "/"
+    parts = [p for p in raw_path.split("/") if p]
+    if len(parts) >= 2 and parts[0] == "app":
+        return "/" + "/".join(parts[:2]) + "/"
+    if len(parts) >= 3 and parts[0] == "hassio" and parts[1] == "ingress":
+        return "/" + "/".join(parts[:3]) + "/"
+    if len(parts) >= 3 and parts[0] == "api" and parts[1] == "hassio_ingress":
+        return "/" + "/".join(parts[:3]) + "/"
+    return "/"
+
 
 if _FRONTEND_DIR.is_dir():
     # Serve /assets/* and other static files
@@ -983,8 +1005,11 @@ if _FRONTEND_DIR.is_dir():
         file_path = _FRONTEND_DIR / full_path
         if file_path.is_file():
             return FileResponse(str(file_path))
-        html = _INDEX_HTML_PATH.read_text(encoding="utf-8")
-        return HTMLResponse(html)
+        page_html = _INDEX_HTML_PATH.read_text(encoding="utf-8")
+        base_href = _ingress_base_href(request)
+        base_tag = f'<base href="{html.escape(base_href, quote=True)}">'
+        page_html = page_html.replace("<head>", f"<head>\n    {base_tag}", 1)
+        return HTMLResponse(page_html)
 
 
 def main() -> None:
