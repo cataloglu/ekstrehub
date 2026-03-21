@@ -137,11 +137,11 @@ async def run_scheduler(session_factory_getter, ingestion_service_factory) -> No
             for account in accounts:
                 try:
                     svc = ingestion_service_factory(account)
-                    summary = await asyncio.to_thread(svc.run_ingestion_for_account, account.id)
+                    summary_dict, _idempotent = await asyncio.to_thread(svc.run_sync)
                     log.info(
                         "auto_sync_completed account_id=%d saved=%d",
                         account.id,
-                        summary.saved_documents,
+                        summary_dict.get("saved_documents", 0),
                     )
                 except Exception as exc:
                     log.error("auto_sync_account_failed account_id=%d error=%s", account.id, exc)

@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.32 (2026-03-21)
+
+### Düzeltmeler
+- **Otomatik mail sync**: Arka planda `MailIngestionService` eski imza ile oluşturulduğu için (`… takes 1 to 2 positional arguments but 3 were given`) sync tetiklenemiyordu; artık `mail_account` ile oluşturuluyor ve `run_sync()` çağrılıyor (manuel sync ile aynı yol).
+
+---
+
 ## 1.0.31 (2026-02-21)
 
 ### İyileştirmeler

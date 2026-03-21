@@ -58,7 +58,7 @@ async def lifespan(_: FastAPI):
 
     # Start background auto-sync scheduler
     def _svc_factory(account):
-        return MailIngestionService(get_session_factory(), get_settings())
+        return MailIngestionService(mail_account=account)
 
     scheduler_task = asyncio.create_task(
         run_scheduler(get_session_factory, _svc_factory)

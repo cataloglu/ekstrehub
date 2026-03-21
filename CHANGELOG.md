@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.32] – 2026-03-21
+
+### Fixes
+- Auto-sync scheduler: fix `MailIngestionService` factory and call `run_sync()` (was broken after service constructor change).
+
+---
+
 ## [1.0.31] – 2026-02-21
 
 ### Improvements
