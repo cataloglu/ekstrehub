@@ -5,6 +5,7 @@ import {
   createMailAccount,
   deleteMailAccount,
   apiUrlPath,
+  openOAuthInNewTabOrNavigate,
   getAutoSync,
   getParserChanges,
   getHealth,
@@ -86,6 +87,12 @@ export function App() {
   const [formProvider, setFormProvider] = useState<"gmail" | "outlook" | "custom">("gmail");
   const [formAuthMode, setFormAuthMode] = useState<"password" | "oauth_gmail">("password");
   const [formLabel, setFormLabel] = useState("Primary Gmail");
+
+  const gmailOAuthUrl = useMemo(
+    () =>
+      `${apiUrlPath("api/oauth/gmail/start")}?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`,
+    [formLabel]
+  );
   const [formImapUser, setFormImapUser] = useState("");
   const [formImapPassword, setFormImapPassword] = useState("");
   const [formRefreshToken, setFormRefreshToken] = useState("");
@@ -1847,7 +1854,13 @@ export function App() {
                       </p>
                       <a
                         className="btn btnGoogle"
-                        href={`${apiUrlPath("api/oauth/gmail/start")}?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
+                        href={gmailOAuthUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          openOAuthInNewTabOrNavigate(gmailOAuthUrl);
+                        }}
                       >
                         Gmail’e bağlan (tarayıcıda aç)
                       </a>

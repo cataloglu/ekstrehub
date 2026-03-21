@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.23] – 2026-02-21
+
+### Düzeltmeler
+- Gmail OAuth button: open in new tab with fallback (HA iframe).
+
+---
+
 ## [1.0.22] – 2026-02-21
 
 ### Düzeltmeler

@@ -152,6 +152,21 @@ export function apiUrlPath(path: string): string {
   return new URL(p, base).href;
 }
 
+/**
+ * Gmail OAuth (Ingress iframe): varsayılan `<a href target="_blank">` çoğu zaman çalışmaz
+ * (sandbox / üst çerçeve). Önce yeni sekme, engellenirse aynı sekmede yönlendirme.
+ */
+export function openOAuthInNewTabOrNavigate(url: string): void {
+  try {
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (w == null) {
+      window.location.assign(url);
+    }
+  } catch {
+    window.location.assign(url);
+  }
+}
+
 function withRequestHeaders(headers: HeadersInit = {}, options?: RequestOptions): HeadersInit {
   if (!options?.requestId) {
     return headers;

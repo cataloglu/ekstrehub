@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.23 (2026-02-21)
+
+### Düzeltmeler
+- **Gmail OAuth (Ingress)**: “Gmail’e bağlan” tıklanınca link bazen açılmıyordu (iframe / sandbox). `window.open` + yeni sekme engellenirse aynı sekmede `location.assign` ile açılır.
+
+---
+
 ## 1.0.22 (2026-02-21)
 
 ### Düzeltmeler
