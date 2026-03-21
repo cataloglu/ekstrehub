@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.41 (2026-03-21)
+
+### İyileştirmeler
+- **Parser teşhis logları**: `text_fp` (metin özeti), `parser_parse_start` / `parser_parse_done` (path: learned_local / llm / llm_failed / no_llm), öğrenilmiş kurallarda `learned_skip` nedeni; LLM’de `llm_call_start`, sıfır işlem uyarısı.
+
+---
+
 ## 1.0.40 (2026-03-21)
 
 ### Özellikler

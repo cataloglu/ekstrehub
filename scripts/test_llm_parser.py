@@ -59,7 +59,7 @@ print(f"Extracted {len(text)} chars")
 
 print(f"\nSending to LLM ({LLM_MODEL})...")
 print("This may take 30-120 seconds on CPU...")
-result, err = parse_with_llm(text, LLM_API_URL, LLM_MODEL, timeout_seconds=300)
+result, err = parse_with_llm(text, LLM_API_URL, LLM_MODEL, timeout_seconds=300, text_fp="script")
 
 if result is None:
     print(f"LLM parse FAILED ({err or 'unknown'})")

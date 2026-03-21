@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.41] – 2026-03-21
+
+### Improvements
+- Parser diagnostic logs: `text_fp`, parse path, `learned_skip` reasons, LLM request sizes.
+
+---
+
 ## [1.0.40] – 2026-03-21
 
 ### Features

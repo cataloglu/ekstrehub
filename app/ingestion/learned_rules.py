@@ -110,12 +110,22 @@ def try_apply_learned_rules(
     text: str,
     rules: dict[str, Any],
     bank_name: str | None,
+    *,
+    text_fp: str | None = None,
 ) -> ParsedStatement | None:
     """Apply stored regex rules. Returns None if unusable or no matches."""
+    fp = text_fp or "-"
     if not rules or rules.get("version") != _RULE_VERSION:
+        log.info(
+            "learned_skip reason=bad_version_or_empty bank=%s version=%s text_fp=%s",
+            bank_name,
+            (rules or {}).get("version"),
+            fp,
+        )
         return None
     pattern = (rules.get("transaction_line_regex") or "").strip()
     if not pattern:
+        log.info("learned_skip reason=no_pattern bank=%s text_fp=%s", bank_name, fp)
         return None
     flags = 0
     for f in rules.get("regex_flags") or []:
@@ -126,12 +136,20 @@ def try_apply_learned_rules(
     try:
         rx = re.compile(pattern, flags)
     except re.error as exc:
-        log.debug("learned_rules_compile_fail %s", exc)
+        log.warning(
+            "learned_skip reason=regex_compile bank=%s err=%s pattern_preview=%s text_fp=%s",
+            bank_name,
+            exc,
+            pattern[:120].replace("\n", " "),
+            fp,
+        )
         return None
 
     date_fmt = rules.get("date_format") or "%d.%m.%Y"
     match_mode = rules.get("match_mode") or "line"
     txs: list[ParsedTransaction] = []
+    regex_hits = 0
+    amount_parse_failed = 0
     if match_mode == "line":
         for line in text.splitlines():
             line = line.strip()
@@ -140,6 +158,7 @@ def try_apply_learned_rules(
             m = rx.search(line)
             if not m:
                 continue
+            regex_hits += 1
             gd = m.groupdict()
             d_raw = _group_get(gd, "date", "tarih")
             desc = _group_get(gd, "description", "desc", "aciklama")
@@ -147,6 +166,7 @@ def try_apply_learned_rules(
             d = _parse_date_flexible(d_raw, date_fmt)
             amt = _parse_tr_amount(amt_raw)
             if amt is None:
+                amount_parse_failed += 1
                 continue
             txs.append(
                 ParsedTransaction(
@@ -158,6 +178,7 @@ def try_apply_learned_rules(
             )
     else:
         for m in rx.finditer(text):
+            regex_hits += 1
             gd = m.groupdict()
             d_raw = _group_get(gd, "date", "tarih")
             desc = _group_get(gd, "description", "desc", "aciklama")
@@ -165,6 +186,7 @@ def try_apply_learned_rules(
             d = _parse_date_flexible(d_raw, date_fmt)
             amt = _parse_tr_amount(amt_raw)
             if amt is None:
+                amount_parse_failed += 1
                 continue
             txs.append(
                 ParsedTransaction(
@@ -176,6 +198,15 @@ def try_apply_learned_rules(
             )
 
     if len(txs) < 1:
+        log.info(
+            "learned_skip reason=no_valid_transactions bank=%s mode=%s regex_hits=%d "
+            "amount_parse_failed=%d text_fp=%s",
+            bank_name,
+            match_mode,
+            regex_hits,
+            amount_parse_failed,
+            fp,
+        )
         return None
 
     ps = ParsedStatement()

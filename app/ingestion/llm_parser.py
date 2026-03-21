@@ -144,6 +144,13 @@ def call_llm(
         RuntimeError: If the LLM call fails or response is not valid JSON.
     """
     truncated = _truncate_text(text)
+    log.info(
+        "llm_call_start model=%s timeout=%ds text_len=%d truncated_len=%d",
+        model,
+        timeout_seconds,
+        len(text),
+        len(truncated),
+    )
     payload = {
         "model": model,
         "messages": [
@@ -191,23 +198,35 @@ def parse_with_llm(
     model: str,
     api_key: str = "",
     timeout_seconds: int = 120,
+    *,
+    text_fp: str | None = None,
 ) -> tuple[dict[str, Any] | None, str | None]:
     """Try to parse statement with LLM.
 
     Returns (data, None) on success, or (None, reason) on failure.
     reason is \"timeout\" for read timeouts, \"failed\" for other errors.
     """
+    fp = text_fp or "-"
     try:
         result = call_llm(text, api_url, model, api_key, timeout_seconds)
+        n_tx = len(result.get("transactions", []))
         log.info(
-            "llm_parse_ok model=%s bank=%s transactions=%d",
+            "llm_parse_ok model=%s bank=%s transactions=%d text_fp=%s",
             model,
             result.get("bank_name"),
-            len(result.get("transactions", [])),
+            n_tx,
+            fp,
         )
+        if n_tx == 0:
+            log.warning(
+                "llm_returned_zero_transactions model=%s bank_in_json=%s text_fp=%s",
+                model,
+                result.get("bank_name"),
+                fp,
+            )
         return result, None
     except Exception as exc:
-        log.warning("llm_parse_failed model=%s reason=%s", model, exc)
+        log.warning("llm_parse_failed model=%s reason=%s text_fp=%s", model, exc, fp)
         err = str(exc).lower()
         if "timed out" in err or "timeout" in err:
             return None, "timeout"
