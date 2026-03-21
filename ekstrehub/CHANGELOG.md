@@ -1,5 +1,20 @@
 # EkstreHub Changelog
 
+## 1.0.19 (2026-02-21)
+
+### Düzeltmeler
+- **HA Ingress / siyah ekran 404**: `.../app/<slug>` adresi sonunda `/` olmadan açılınca `./assets/` yanlışlıkla `/app/assets/...` oluyordu. `index.html` yanıtında **her zaman** `<base href>` enjekte edilir (`X-Ingress-Path` veya `/app/<slug>/` çıkarımı; eski `/hassio/ingress/...` için de).
+- **Gmail OAuth linki**: `apiUrlPath()` artık `fetch("api/...")` ile aynı şekilde `<base href>` kullanıyor.
+
+---
+
+## 1.0.17 (2026-03-17)
+
+### Düzeltmeler
+- **HA Ingress / Gmail OAuth**: “Gmail’e bağlan” linki artık `window.location.pathname` ile tam URL üretiyor; `<base href>` yüzünden yanlış path’e gidip **404** olma sorunu giderildi.
+
+---
+
 ## 1.0.16 (2026-03-17)
 
 ### UX

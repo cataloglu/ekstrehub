@@ -126,17 +126,30 @@ export type RequestOptions = {
 };
 
 /**
- * Home Assistant Ingress: `<base href>` bazen göreli `api/...` linklerini yanlış path'e çözer → 404.
- * Mevcut sayfanın pathname'ine göre addon içi API URL'si üretir (örn. `/app/.../slug/api/oauth/...`).
+ * Home Assistant Ingress: `fetch("api/...")` çağrıları `<base href>` ile çözülür.
+ * OAuth için tam URL üretirken de **aynı tabanı** kullanmalıyız; yalnızca `location.pathname`
+ * kullanmak Ingress'te 404'e yol açabilir (panel/iframe veya path uyuşmazlığı).
  */
 export function apiUrlPath(path: string): string {
   if (typeof window === "undefined") {
     return path.startsWith("/") ? path : `/${path}`;
   }
   const p = path.replace(/^\//, "");
-  const pathname = window.location.pathname;
-  const baseDir = pathname.endsWith("/") ? pathname : `${pathname}/`;
-  return `${window.location.origin}${baseDir}${p}`;
+  const baseEl = document.querySelector("base");
+  let base: string;
+  if (baseEl?.href) {
+    base = baseEl.href;
+  } else {
+    let pathname = window.location.pathname;
+    if (!pathname.endsWith("/")) {
+      pathname = `${pathname}/`;
+    }
+    base = `${window.location.origin}${pathname}`;
+  }
+  if (!base.endsWith("/")) {
+    base = `${base}/`;
+  }
+  return new URL(p, base).href;
 }
 
 function withRequestHeaders(headers: HeadersInit = {}, options?: RequestOptions): HeadersInit {

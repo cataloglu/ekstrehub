@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.19] – 2026-02-21
+
+### Düzeltmeler
+- HA Ingress: siyah ekran / `404` — her zaman `<base href>`; Gmail OAuth linki `<base>` ile uyumlu.
+
+---
+
 ## [1.0.9] – 2026-03-21
 
 ### Düzeltmeler

@@ -964,6 +964,30 @@ async def get_activity_log(request: Request, limit: int = 80):
 # In development, Vite dev server is used instead.
 _FRONTEND_DIR = pathlib.Path(__file__).parent.parent / "ui" / "dist"
 
+
+def _ingress_base_path(request: Request) -> str:
+    """Directory path for `<base href>` (always ends with `/`).
+
+    Under Home Assistant, the UI is often at `/app/<slug>` **without** a trailing slash.
+    With Vite `base: "./"`, script URLs like `./assets/...` are resolved against the **current
+    URL path**; without a trailing slash the last segment is dropped and `./assets` wrongly
+    becomes `/app/assets/...` instead of `/app/<slug>/assets/...` → 404 black screen.
+
+    `X-Ingress-Path` fixes this when present; when it is missing we infer the SPA root from
+    `/app/<slug>/...` or legacy `/hassio/ingress/<slug>/...`.
+    """
+    ingress_path = request.headers.get("x-ingress-path", "").strip()
+    if ingress_path:
+        return ingress_path if ingress_path.endswith("/") else ingress_path + "/"
+    raw_path = request.url.path.rstrip("/") or "/"
+    parts = [p for p in raw_path.split("/") if p]
+    if len(parts) >= 2 and parts[0] == "app":
+        return "/" + "/".join(parts[:2]) + "/"
+    if len(parts) >= 3 and parts[0] == "hassio" and parts[1] == "ingress":
+        return "/" + "/".join(parts[:3]) + "/"
+    return "/"
+
+
 if _FRONTEND_DIR.is_dir():
     # Serve /assets/* and other static files
     app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIR / "assets")), name="assets")
@@ -979,14 +1003,11 @@ if _FRONTEND_DIR.is_dir():
         file_path = _FRONTEND_DIR / full_path
         if file_path.is_file():
             return FileResponse(str(file_path))
-        # Serve index.html — inject <base href> when behind HA Ingress (X-Ingress-Path)
+        # Always inject <base href> so relative ./assets (Vite) resolve under Ingress.
         html = _INDEX_HTML_PATH.read_text(encoding="utf-8")
-        ingress_path = request.headers.get("x-ingress-path", "").strip()
-        if ingress_path:
-            if not ingress_path.endswith("/"):
-                ingress_path += "/"
-            base_tag = f'<base href="{ingress_path}">'
-            html = html.replace("<head>", f"<head>\n    {base_tag}", 1)
+        base_href = _ingress_base_path(request)
+        base_tag = f'<base href="{base_href}">'
+        html = html.replace("<head>", f"<head>\n    {base_tag}", 1)
         return HTMLResponse(html)
 
 

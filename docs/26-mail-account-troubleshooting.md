@@ -1,10 +1,16 @@
 # Mail hesabı ekleme — bilinen sorunlar ve denetim listesi
 
+## Ingress / siyah ekran 404 (1.0.19)
+
+- **Semptom:** HA panelde add-on açılınca siyah alanda `404: Not Found` (veya boş sayfa).
+- **Neden:** Adres `.../app/<slug>` şeklinde **sonunda `/` olmadan** açılınca, Vite’ın `./assets/...` yolları yanlışlıkla `/app/assets/...` olarak çözülür (doğrusu `/app/<slug>/assets/...`); HA bu path’i sunmaz.
+- **Çözüm:** Sunucu her `index.html` yanıtında `<base href>` enjekte eder (`X-Ingress-Path` veya `/app/<slug>/` çıkarımı).
+
 ## Gmail OAuth 404 (1.0.17)
 
 - **Semptom:** “Gmail’e bağlan” tıklanınca `404: Not Found` (genelde HA Ingress altında).
 - **Neden:** Göreli `api/oauth/gmail/start` linki `<base href>` ile yanlış host/path’e çözülüyordu.
-- **Çözüm:** Link `apiUrlPath()` ile mevcut sayfa path’ine göre mutlak URL’e çevrildi.
+- **Çözüm:** Link `apiUrlPath()` ile `<base href>` ile çözülür (fetch ile aynı taban).
 
 ## Kritik UI hatası (1.0.15 ile düzeltildi)
 
