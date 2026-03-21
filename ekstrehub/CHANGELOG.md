@@ -1,5 +1,19 @@
 # EkstreHub Changelog
 
+## 1.0.38 (2026-03-21)
+
+### Özellikler
+- **Ayarlar → Sistem**: Onaylı veri sıfırlama — tüm ekstre/mail ingestion kayıtları, öğrenilmiş parser ve denetim logları silinir; mail hesapları ve AI ayarları kalır. Onay için `SIFIRLA` yazılır.
+
+---
+
+## 1.0.37 (2026-03-21)
+
+### Özellikler
+- **Ekstreler** sekmesinde her PDF için **«Yeniden çöz»** (↻); seçili ekstreler için toplu **«Seçilenleri yeniden çöz»** — Ayarlar’a gitmeden mailden PDF tekrar alınır ve LLM ile parse edilir.
+
+---
+
 ## 1.0.36 (2026-03-21)
 
 ### Özellikler

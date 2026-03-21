@@ -28,6 +28,7 @@ from app.ingestion.service import MailIngestionService
 from app.auto_sync import get_auto_sync_status, update_settings as update_auto_sync_settings, run_scheduler
 import app.app_settings as app_settings
 from app.logging_utils import configure_logging, log_event
+from app.system_reset import RESET_CONFIRM_PHRASE, reset_ingestion_data
 from app.schemas.ingestion import (
     IngestionRunItemResponse,
     IngestionRunListResponse,
@@ -743,6 +744,35 @@ async def delete_statements_bulk(request: Request):
             return {"deleted": True, "count": deleted_count}
     except HTTPException:
         raise
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.post("/api/system/reset-ingestion")
+async def system_reset_ingestion(request: Request):
+    """Delete all ekstre/mail ingestion data (not mail accounts, not LLM settings). Body: { \"confirm\": \"SIFIRLA\" }."""
+    body = await request.json()
+    confirm = (body.get("confirm") or "").strip()
+    if confirm != RESET_CONFIRM_PHRASE:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "confirm_required",
+                "message": f'Onay için tam olarak "{RESET_CONFIRM_PHRASE}" yazın.',
+            },
+        )
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            result = reset_ingestion_data(session)
+        log_event(
+            request_logger,
+            "system_reset_ingestion",
+            category="system",
+            request_id=getattr(request.state, "request_id", None),
+            deleted=result.get("deleted"),
+        )
+        return result
     except (OperationalError, SQLAlchemyError) as exc:
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 

@@ -23,6 +23,8 @@ import {
   getActivityLog,
   deleteStatement,
   deleteStatementsBulk,
+  resetIngestionData,
+  RESET_INGESTION_CONFIRM_PHRASE,
   type AutoSyncSettings,
   type LlmSettings,
   type HealthResponse,
@@ -37,7 +39,7 @@ import {
 
 type LoadState = "idle" | "loading" | "success" | "error";
 type AppTab = "dashboard" | "statements" | "search" | "mail" | "settings" | "logs";
-type SettingsSubTab = "parser" | "logs" | "auto-sync" | "ai-parser";
+type SettingsSubTab = "parser" | "logs" | "auto-sync" | "ai-parser" | "system";
 type UiLogLevel = "info" | "error";
 type UiLogCategory = "system" | "auth" | "mail" | "parser" | "db";
 type UiLogEntry = {
@@ -125,7 +127,11 @@ export function App() {
   const [isSavingLlm, setIsSavingLlm] = useState(false);
   const [isTestingLlm, setIsTestingLlm] = useState(false);
   const [isReparsingStatements, setIsReparsingStatements] = useState(false);
+  const [reparseStmtId, setReparseStmtId] = useState<number | null>(null);
   const [reparseSummary, setReparseSummary] = useState<string | null>(null);
+  const [systemResetOpen, setSystemResetOpen] = useState(false);
+  const [systemResetInput, setSystemResetInput] = useState("");
+  const [isResettingSystem, setIsResettingSystem] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
   const [feeMode, setFeeMode] = useState(false);
   const [activityLog, setActivityLog] = useState<ActivityLogResponse | null>(null);
@@ -222,6 +228,120 @@ export function App() {
       pushLog("error", "parser", msg);
     } finally {
       setIsDeletingStmts(false);
+    }
+  }
+
+  const llmReadyForReparse =
+    !!llmSettings?.llm_enabled && (llmSettings.llm_api_url || "").trim().length > 0;
+
+  async function handleReparseStatement(stmt: StatementItem) {
+    if (stmt.doc_type !== "pdf") {
+      setSyncInfo("Yeniden çöz: sadece PDF ekstreler desteklenir.");
+      pushLog("info", "parser", `doc #${stmt.id} CSV/görsel — atlandı`);
+      return;
+    }
+    if (!llmReadyForReparse) {
+      setErrorMessage("AI Parser kapalı veya API URL boş. Ayarlar → AI Parser.");
+      setActiveTab("settings");
+      setSettingsSubTab("ai-parser");
+      return;
+    }
+    setReparseStmtId(stmt.id);
+    setErrorMessage("");
+    try {
+      const r = await reparseStatements("selected", [stmt.id]);
+      const row = r.results?.find((x) => x.doc_id === stmt.id) ?? r.results?.[0];
+      if (row?.ok) {
+        const n = row.transaction_count ?? 0;
+        setSyncInfo(`Ekstre yeniden parse edildi (${n} işlem).`);
+        pushLog("info", "parser", `reparse ok doc #${stmt.id} tx=${n}`);
+        await reloadCoreData();
+      } else {
+        const err = row?.error ?? r.message ?? "Bilinmeyen hata";
+        pushLog("error", "parser", `reparse doc #${stmt.id}: ${err}`);
+        await reloadCoreData();
+        setErrorMessage(`Yeniden parse: ${err}`);
+      }
+    } catch (e) {
+      setErrorMessage(formatReparseFetchError(e));
+      pushLog("error", "parser", formatReparseFetchError(e));
+    } finally {
+      setReparseStmtId(null);
+    }
+  }
+
+  async function handleReparseSelectedStatements() {
+    const pdfIds = Array.from(selectedStmtIds).filter((id) => {
+      const s = statements.find((x) => x.id === id);
+      return s?.doc_type === "pdf";
+    });
+    if (pdfIds.length === 0) {
+      setSyncInfo("Seçilenlerde PDF ekstre yok.");
+      return;
+    }
+    if (!llmReadyForReparse) {
+      setErrorMessage("AI Parser kapalı veya API URL boş. Ayarlar → AI Parser.");
+      setActiveTab("settings");
+      setSettingsSubTab("ai-parser");
+      return;
+    }
+    if (
+      !window.confirm(
+        `${pdfIds.length} PDF ekstre mailden tekrar alınıp yeniden çözülecek. Devam?`,
+      )
+    ) {
+      return;
+    }
+    setIsReparsingStatements(true);
+    setErrorMessage("");
+    try {
+      let ok = 0;
+      let fail = 0;
+      for (let i = 0; i < pdfIds.length; i++) {
+        const id = pdfIds[i];
+        setReparseStmtId(id);
+        try {
+          const r = await reparseStatements("selected", [id]);
+          const row = r.results?.find((x) => x.doc_id === id) ?? r.results?.[0];
+          if (row?.ok) ok += 1;
+          else fail += 1;
+        } catch {
+          fail += 1;
+        }
+      }
+      setSyncInfo(`Yeniden çöz bitti: ${ok} başarılı, ${fail} sorunlu / ${pdfIds.length} ekstre.`);
+      pushLog("info", "parser", `bulk reparse ${ok}/${pdfIds.length}`);
+      setSelectedStmtIds(new Set());
+      await reloadCoreData();
+    } catch (e) {
+      setErrorMessage(formatReparseFetchError(e));
+    } finally {
+      setReparseStmtId(null);
+      setIsReparsingStatements(false);
+    }
+  }
+
+  async function executeSystemReset() {
+    if (systemResetInput !== RESET_INGESTION_CONFIRM_PHRASE) return;
+    setIsResettingSystem(true);
+    setErrorMessage("");
+    try {
+      const r = await resetIngestionData(systemResetInput);
+      const d = r.deleted;
+      setSystemResetOpen(false);
+      setSystemResetInput("");
+      setSelectedStmtIds(new Set());
+      setExpandedStatementId(null);
+      setSyncInfo(
+        `Sıfırlama tamam. Silinen: ekstre ${d.statement_documents ?? 0}, mail kaydı ${d.emails_ingested ?? 0}, sync çalışması ${d.mail_ingestion_runs ?? 0}. Mail & Sync ile yeniden indirebilirsin.`,
+      );
+      pushLog("info", "system", "Sistem verisi sıfırlandı (ingestion)");
+      await reloadCoreData();
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
+      pushLog("error", "system", e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsResettingSystem(false);
     }
   }
 
@@ -1145,8 +1265,17 @@ export function App() {
                 <div className="bulkActionBar">
                   <span className="bulkCount">{selectedStmtIds.size} ekstre seçildi</span>
                   <button
+                    type="button"
+                    className="bulkReparseBtn"
+                    disabled={isDeletingStmts || isReparsingStatements || !llmReadyForReparse}
+                    title={!llmReadyForReparse ? "Ayarlar → AI Parser: LLM açık ve API URL dolu olmalı" : "Mailden PDF tekrar alınır, LLM ile parse"}
+                    onClick={() => void handleReparseSelectedStatements()}
+                  >
+                    {isReparsingStatements ? "Yeniden çözülüyor…" : "↻ Seçilenleri yeniden çöz"}
+                  </button>
+                  <button
                     className="bulkDeleteBtn"
-                    disabled={isDeletingStmts}
+                    disabled={isDeletingStmts || isReparsingStatements}
                     onClick={() => confirmDeleteStatements(
                       Array.from(selectedStmtIds),
                       `${selectedStmtIds.size} ekstre`
@@ -1156,6 +1285,7 @@ export function App() {
                   </button>
                   <button
                     className="bulkCancelBtn"
+                    disabled={isReparsingStatements}
                     onClick={() => setSelectedStmtIds(new Set())}
                   >
                     İptal
@@ -1238,18 +1368,44 @@ export function App() {
                             />
                             <span className="stmtCheckboxText">Seç</span>
                           </label>
-                          <button
-                            className="stmtDeleteBtn"
-                            title="Bu ekstreyi sil"
-                            disabled={isDeletingStmts}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const label = `${stmt.bank_name ?? "Ekstre"} ${stmt.period_start ?? ""}–${stmt.period_end ?? ""}`;
-                              confirmDeleteStatements([stmt.id], label);
-                            }}
-                          >
-                            🗑
-                          </button>
+                          <div className="stmtCardActions">
+                            {stmt.doc_type === "pdf" && (
+                              <button
+                                type="button"
+                                className="stmtReparseBtn"
+                                title={
+                                  !llmReadyForReparse
+                                    ? "AI Parser: LLM açık ve API URL gerekli"
+                                    : "Mailden PDF tekrar al, LLM ile yeniden parse et"
+                                }
+                                disabled={
+                                  isDeletingStmts
+                                  || isReparsingStatements
+                                  || reparseStmtId === stmt.id
+                                  || !llmReadyForReparse
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleReparseStatement(stmt);
+                                }}
+                              >
+                                {reparseStmtId === stmt.id ? "…" : "↻ Yeniden çöz"}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="stmtDeleteBtn"
+                              title="Bu ekstreyi sil"
+                              disabled={isDeletingStmts || isReparsingStatements || reparseStmtId === stmt.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const label = `${stmt.bank_name ?? "Ekstre"} ${stmt.period_start ?? ""}–${stmt.period_end ?? ""}`;
+                                confirmDeleteStatements([stmt.id], label);
+                              }}
+                            >
+                              🗑
+                            </button>
+                          </div>
                         </div>
                         <div
                           role="button"
@@ -2146,6 +2302,12 @@ export function App() {
                 >
                   Sistem Logları
                 </button>
+                <button
+                  className={`subTab${settingsSubTab === "system" ? " subTabActive" : ""}`}
+                  onClick={() => setSettingsSubTab("system")}
+                >
+                  Sistem
+                </button>
               </div>
 
               {settingsSubTab === "auto-sync" && (
@@ -2706,10 +2868,89 @@ export function App() {
                   </div>
                 </section>
               )}
+
+              {settingsSubTab === "system" && (
+                <section className="section">
+                  <div className="dangerZone">
+                    <h3 className="dangerZoneTitle">Veriyi sıfırla</h3>
+                    <p className="muted" style={{ marginBottom: 12 }}>
+                      Tüm <strong>ekstre kayıtları</strong>, <strong>işlenmiş mail kayıtları</strong>,{" "}
+                      <strong>sync geçmişi</strong>, <strong>öğrenilmiş parser kuralları</strong> ve{" "}
+                      <strong>denetim logları</strong> veritabanından silinir.
+                    </p>
+                    <p className="muted" style={{ marginBottom: 16 }}>
+                      <strong>Korunur:</strong> mail hesapları (Gmail/IMAP), AI Parser ayarları, otomatik sync ayarı.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn dangerOutlineBtn"
+                      onClick={() => {
+                        setSystemResetInput("");
+                        setSystemResetOpen(true);
+                      }}
+                    >
+                      Sıfırlamayı başlat…
+                    </button>
+                  </div>
+                </section>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* ── System reset confirm (type SIFIRLA) ── */}
+      {systemResetOpen && (
+        <div
+          className="modalOverlay"
+          onClick={() => !isResettingSystem && setSystemResetOpen(false)}
+        >
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confirmDialogIcon">⚠</div>
+            <div className="confirmDialogTitle">Emin misin?</div>
+            <div className="confirmDialogBody" style={{ textAlign: "left" }}>
+              Bu işlem <strong>geri alınamaz</strong>. Aşağıya tam olarak{" "}
+              <code className="inlineCode">{RESET_INGESTION_CONFIRM_PHRASE}</code> yaz, sonra onayla.
+              <label className="systemResetLabel" htmlFor="system-reset-confirm">
+                Onay metni
+              </label>
+              <input
+                id="system-reset-confirm"
+                className="systemResetInput"
+                type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder={RESET_INGESTION_CONFIRM_PHRASE}
+                value={systemResetInput}
+                onChange={(e) => setSystemResetInput(e.target.value)}
+                disabled={isResettingSystem}
+              />
+            </div>
+            <div className="confirmDialogActions">
+              <button
+                type="button"
+                className="confirmBtnCancel"
+                disabled={isResettingSystem}
+                onClick={() => setSystemResetOpen(false)}
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                className="confirmBtnDelete"
+                disabled={
+                  isResettingSystem
+                  || systemResetInput !== RESET_INGESTION_CONFIRM_PHRASE
+                }
+                onClick={() => void executeSystemReset()}
+              >
+                {isResettingSystem ? "Sıfırlanıyor…" : "Evet, sıfırla"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Delete confirm dialog ── */}
       {deleteConfirm && (

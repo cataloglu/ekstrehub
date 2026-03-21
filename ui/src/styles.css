@@ -1649,6 +1649,70 @@ body {
 }
 .bulkCancelBtn:hover { background: var(--surface3); }
 
+.bulkReparseBtn {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: var(--accent);
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bulkReparseBtn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.22);
+}
+.bulkReparseBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Settings → Sistem: danger zone */
+.dangerZone {
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.06);
+  border-radius: 12px;
+  padding: 18px 20px;
+  max-width: 520px;
+}
+.dangerZoneTitle {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: #f87171;
+}
+.dangerOutlineBtn {
+  border-color: rgba(248, 113, 113, 0.55) !important;
+  color: #f87171 !important;
+  background: transparent !important;
+}
+.dangerOutlineBtn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12) !important;
+}
+.systemResetLabel {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  color: var(--text3);
+}
+.systemResetInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: var(--surface1);
+  color: var(--text1);
+  font-size: 0.95rem;
+  font-family: ui-monospace, monospace;
+}
+.inlineCode {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface3);
+  font-size: 0.88em;
+}
+
 /* Per-card select row */
 .stmtSelectRow {
   display: flex;
@@ -1678,6 +1742,32 @@ body {
 .stmtCheckboxText {
   font-size: 0.72rem;
   color: var(--text3);
+}
+.stmtCardActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stmtReparseBtn {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--accent);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.stmtReparseBtn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+.stmtReparseBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 .stmtDeleteBtn {
   background: none;

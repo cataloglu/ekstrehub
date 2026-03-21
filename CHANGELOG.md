@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.38] – 2026-03-21
+
+### Features
+- Settings → **System**: typed confirmation (`SIFIRLA`) to wipe ingestion data (statements, emails, runs, learned rules, audit logs); mail accounts & LLM settings kept.
+
+---
+
+## [1.0.37] – 2026-03-21
+
+### Features
+- Statements tab: per-PDF **Re-parse** and bulk **Re-parse selected** (IMAP re-fetch + LLM).
+
+---
+
 ## [1.0.36] – 2026-03-21
 
 ### Features
