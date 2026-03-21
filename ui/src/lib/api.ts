@@ -125,6 +125,20 @@ export type RequestOptions = {
   requestId?: string;
 };
 
+/**
+ * Home Assistant Ingress: `<base href>` bazen göreli `api/...` linklerini yanlış path'e çözer → 404.
+ * Mevcut sayfanın pathname'ine göre addon içi API URL'si üretir (örn. `/app/.../slug/api/oauth/...`).
+ */
+export function apiUrlPath(path: string): string {
+  if (typeof window === "undefined") {
+    return path.startsWith("/") ? path : `/${path}`;
+  }
+  const p = path.replace(/^\//, "");
+  const pathname = window.location.pathname;
+  const baseDir = pathname.endsWith("/") ? pathname : `${pathname}/`;
+  return `${window.location.origin}${baseDir}${p}`;
+}
+
 function withRequestHeaders(headers: HeadersInit = {}, options?: RequestOptions): HeadersInit {
   if (!options?.requestId) {
     return headers;

@@ -4,6 +4,7 @@ import {
   approveParserChange,
   createMailAccount,
   deleteMailAccount,
+  apiUrlPath,
   getAutoSync,
   getParserChanges,
   getHealth,
@@ -1846,7 +1847,7 @@ export function App() {
                       </p>
                       <a
                         className="btn btnGoogle"
-                        href={`api/oauth/gmail/start?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
+                        href={`${apiUrlPath("api/oauth/gmail/start")}?label=${encodeURIComponent(formLabel || "Gmail Hesabı")}`}
                       >
                         Gmail’e bağlan (tarayıcıda aç)
                       </a>
