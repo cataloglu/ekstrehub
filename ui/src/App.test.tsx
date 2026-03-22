@@ -78,6 +78,21 @@ function mockFetchSuccess() {
         })
       };
     }
+    if (url.includes("api/ingestion/documents/stats")) {
+      return {
+        ok: true,
+        json: async () => ({
+          stats: {
+            total: 0,
+            parsed: 0,
+            parse_failed: 0,
+            pending: 0,
+            unsupported: 0,
+            non_parsed: 0,
+          },
+        }),
+      };
+    }
     if (url.includes("api/statements")) {
       return { ok: true, json: async () => ({ items: [] }) };
     }

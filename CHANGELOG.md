@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.47] – 2026-03-22
+
+### Features
+- **Dosyalar** tab: all ingested PDF/CSV attachments with parse status (totals: success / failed / pending). Filter: all / non-parsed / parsed / parse_failed. API: `GET /api/ingestion/documents`, `GET /api/ingestion/documents/stats`.
+- Sidebar badge on **Dosyalar** when `non_parsed > 0`.
+
+---
+
 ## [1.0.46] – 2026-03-22
 
 ### Features

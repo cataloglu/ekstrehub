@@ -12,6 +12,8 @@ import {
   getIngestionRuns,
   getMailAccounts,
   getStatements,
+  getIngestionDocuments,
+  getIngestionDocumentsStats,
   getLlmSettings,
   patchLlmSettings,
   testLlmConnection,
@@ -37,6 +39,8 @@ import {
   type MailAccount,
   type ParserChangeItem,
   type StatementItem,
+  type IngestionStats,
+  type IngestionDocumentItem,
   type ActivityLogResponse,
   type ActivityEvent,
 } from "./lib/api";
@@ -48,7 +52,7 @@ import {
 } from "./lib/logExport";
 
 type LoadState = "idle" | "loading" | "success" | "error";
-type AppTab = "dashboard" | "statements" | "search" | "mail" | "settings" | "logs";
+type AppTab = "dashboard" | "statements" | "documents" | "search" | "mail" | "settings" | "logs";
 type SettingsSubTab = "parser" | "logs" | "auto-sync" | "ai-parser" | "system";
 type UiLogLevel = "info" | "error";
 type UiLogCategory = "system" | "auth" | "mail" | "parser" | "db";
@@ -64,6 +68,7 @@ type UiLogEntry = {
 const NAV_ITEMS: { id: AppTab; icon: string; label: string }[] = [
   { id: "dashboard", icon: "⊞", label: "Özet" },
   { id: "statements", icon: "▦", label: "Ekstreler" },
+  { id: "documents", icon: "📑", label: "Dosyalar" },
   { id: "search", icon: "⌕", label: "Ara" },
   { id: "logs", icon: "◎", label: "Loglar" },
   { id: "mail", icon: "✉", label: "Mail & Sync" },
@@ -144,6 +149,10 @@ export function App() {
   /** Gmail'de Mail.app gibi önce OAuth; bunu açınca IMAP + uygulama şifresi formu görünür. */
   const [gmailImapManual, setGmailImapManual] = useState(false);
   const [statements, setStatements] = useState<StatementItem[]>([]);
+  const [ingestionStats, setIngestionStats] = useState<IngestionStats | null>(null);
+  const [ingestionDocs, setIngestionDocs] = useState<IngestionDocumentItem[]>([]);
+  const [ingestionDocFilter, setIngestionDocFilter] = useState<string>("all");
+  const [ingestionRefreshTick, setIngestionRefreshTick] = useState(0);
   const [expandedStatementId, setExpandedStatementId] = useState<number | null>(null);
   const [stmtSearch, setStmtSearch] = useState("");
   const [stmtBankFilter, setStmtBankFilter] = useState("all");
@@ -205,11 +214,12 @@ export function App() {
     setLoadState("loading");
     pushLog("info", "system", "Yenileniyor...", requestId);
     try {
-      const [data, runs, accounts, stmts] = await Promise.all([
+      const [data, runs, accounts, stmts, ingSt] = await Promise.all([
         getHealth({ requestId }),
         getIngestionRuns(10, undefined, runStatusFilter, { requestId }),
         getMailAccounts({ requestId }),
         getStatements({ requestId }),
+        getIngestionDocumentsStats({ requestId }),
       ]);
       setHealth(data);
       setLatestRuns(runs.items);
@@ -217,6 +227,8 @@ export function App() {
       setMailAccounts(accounts.items);
       setSelectedMailAccountId(accounts.items[0]?.id ?? null);
       setStatements(stmts.items);
+      setIngestionStats(ingSt.stats);
+      setIngestionRefreshTick((x) => x + 1);
       setLoadState("success");
       setErrorMessage("");
       pushLog("info", "system", "Veriler güncellendi", requestId);
@@ -227,6 +239,27 @@ export function App() {
       pushLog("error", "system", `Yenileme başarısız: ${message}`, requestId);
     }
   }
+
+  useEffect(() => {
+    if (activeTab !== "documents") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await getIngestionDocuments(ingestionDocFilter, 200);
+        if (!cancelled) {
+          setIngestionDocs(r.items);
+          setIngestionStats(r.stats);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          pushLog("error", "system", e instanceof Error ? e.message : String(e));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, ingestionDocFilter, ingestionRefreshTick]);
 
   async function confirmDeleteStatements(ids: number[], label: string) {
     setDeleteConfirm({ ids, label });
@@ -258,7 +291,7 @@ export function App() {
   const llmReadyForReparse =
     !!llmSettings?.llm_enabled && (llmSettings.llm_api_url || "").trim().length > 0;
 
-  async function handleReparseStatement(stmt: StatementItem) {
+  async function handleReparseStatement(stmt: Pick<StatementItem, "id" | "doc_type">) {
     if (stmt.doc_type !== "pdf") {
       setSyncInfo("Yeniden çöz: sadece PDF ekstreler desteklenir.");
       pushLog("info", "parser", `doc #${stmt.id} CSV/görsel — atlandı`);
@@ -1014,6 +1047,7 @@ export function App() {
   const tabTitle: Record<AppTab, string> = {
     dashboard: "Özet",
     statements: "Ekstreler",
+    documents: "Dosyalar",
     search: "Arama",
     logs: "Sistem Logları",
     mail: "Mail & Sync",
@@ -1110,6 +1144,9 @@ export function App() {
               <span>{item.label}</span>
               {item.id === "statements" && statements.length > 0 && (
                 <span className="navBadge">{statements.length}</span>
+              )}
+              {item.id === "documents" && ingestionStats != null && ingestionStats.non_parsed > 0 && (
+                <span className="navBadge navBadgeWarn">{ingestionStats.non_parsed}</span>
               )}
             </button>
           ))}
@@ -1636,6 +1673,140 @@ export function App() {
                 </div>
               )}
             </>
+          )}
+
+          {/* ─── DOSYALAR (tüm ekler, parse durumu) ─── */}
+          {activeTab === "documents" && (
+            <div className="docQueuePage">
+              <section className="section">
+                <p className="muted" style={{ marginBottom: 16 }}>
+                  Mail sync ile indirilen <strong>tüm PDF/CSV dosyaları</strong> burada. <strong>Ekstreler</strong>{" "}
+                  sekmesinde yalnızca <em>başarılı</em> analizler listelenir; burada{" "}
+                  <strong>henüz analiz edilemeyen veya hatalı</strong> ekleri de görürsün (ör. 11 dosya / 9 başarılı → 2
+                  satır burada).
+                </p>
+                <div className="docQueueKpiRow">
+                  <div className="docQueueKpi">
+                    <span className="docQueueKpiVal">{ingestionStats?.total ?? "—"}</span>
+                    <span className="docQueueKpiLbl">Toplam dosya</span>
+                  </div>
+                  <div className="docQueueKpi docQueueKpiOk">
+                    <span className="docQueueKpiVal">{ingestionStats?.parsed ?? "—"}</span>
+                    <span className="docQueueKpiLbl">Başarılı analiz</span>
+                  </div>
+                  <div className="docQueueKpi docQueueKpiWarn">
+                    <span className="docQueueKpiVal">{ingestionStats?.parse_failed ?? "—"}</span>
+                    <span className="docQueueKpiLbl">Hatalı</span>
+                  </div>
+                  <div className="docQueueKpi docQueueKpiMuted">
+                    <span className="docQueueKpiVal">{ingestionStats?.pending ?? "—"}</span>
+                    <span className="docQueueKpiLbl">Bekliyor</span>
+                  </div>
+                  <div className="docQueueKpi docQueueKpiMuted">
+                    <span className="docQueueKpiVal">{ingestionStats?.non_parsed ?? "—"}</span>
+                    <span className="docQueueKpiLbl">Başarısız toplam</span>
+                  </div>
+                </div>
+                <div className="filterBar" style={{ marginTop: 18 }}>
+                  <span className="muted" style={{ marginRight: 10 }}>Liste:</span>
+                  <select
+                    className="filterSelect"
+                    value={ingestionDocFilter}
+                    onChange={(e) => setIngestionDocFilter(e.target.value)}
+                  >
+                    <option value="all">Tüm dosyalar</option>
+                    <option value="non_parsed">Analiz edilmeyen / hatalı / bekleyen</option>
+                    <option value="parsed">Sadece başarılı</option>
+                    <option value="parse_failed">Sadece hatalı</option>
+                  </select>
+                </div>
+                <div className="docQueueTableWrap">
+                  <table className="docQueueTable">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Dosya</th>
+                        <th>Tür</th>
+                        <th>Durum</th>
+                        <th>Banka (tahmin)</th>
+                        <th>İşlem sayısı</th>
+                        <th>Boyut</th>
+                        <th>Notlar</th>
+                        <th>Mail konusu</th>
+                        <th>Aksiyon</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ingestionDocs.map((row) => {
+                        const stLabel =
+                          row.parse_status === "parsed"
+                            ? "Başarılı"
+                            : row.parse_status === "parse_failed"
+                              ? "Hata"
+                              : row.parse_status === "pending"
+                                ? "Bekliyor"
+                                : row.parse_status === "unsupported"
+                                  ? "Desteklenmiyor"
+                                  : row.parse_status;
+                        return (
+                          <tr key={row.id}>
+                            <td className="docQueueMono">{row.id}</td>
+                            <td className="docQueueFile">{row.file_name}</td>
+                            <td>{row.doc_type}</td>
+                            <td>
+                              <span
+                                className={
+                                  row.parse_status === "parsed"
+                                    ? "docStatus docStatusOk"
+                                    : row.parse_status === "parse_failed"
+                                      ? "docStatus docStatusErr"
+                                      : "docStatus docStatusMuted"
+                                }
+                              >
+                                {stLabel}
+                              </span>
+                            </td>
+                            <td>{row.bank_name ?? "—"}</td>
+                            <td>{row.transaction_count}</td>
+                            <td className="docQueueMono">{Math.round(row.file_size_bytes / 1024)} KB</td>
+                            <td className="docQueueNotes">{row.parse_notes?.length ? row.parse_notes.join(", ") : "—"}</td>
+                            <td className="docQueueSubj">{row.email_subject ?? "—"}</td>
+                            <td className="docQueueActions">
+                              {row.doc_type === "pdf" && (
+                                <a
+                                  className="stmtPdfLink"
+                                  href={apiUrlPath(`api/statements/${row.id}/pdf`)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  PDF
+                                </a>
+                              )}
+                              {row.doc_type === "pdf" && (
+                                <button
+                                  type="button"
+                                  className="stmtReparseBtn"
+                                  disabled={isReparsingStatements || reparseStmtId === row.id || !llmReadyForReparse}
+                                  title={!llmReadyForReparse ? "AI Parser gerekli" : "Yeniden çöz"}
+                                  onClick={() => void handleReparseStatement(row)}
+                                >
+                                  {reparseStmtId === row.id ? "…" : "↻"}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {ingestionDocs.length === 0 && (
+                    <p className="muted" style={{ padding: "12px 14px" }}>
+                      Bu filtreye uygun dosya yok.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
           )}
 
           {/* ─── GLOBAL SEARCH ─── */}

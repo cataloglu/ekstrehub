@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.47 (2026-03-22)
+
+### Özellikler
+- **Dosyalar** sekmesi: Mailden indirilen tüm PDF/CSV ekleri, parse durumu (başarılı / hatalı / bekleyen) ve özet sayaçlar. **Ekstreler** yalnızca başarılı analizi gösterir; eksik veya hatalı satırlar burada.
+- Kenar çubuğunda **Dosyalar** üzerinde turuncu rozet: analiz bekleyen veya hatalı dosya sayısı (`non_parsed`).
+
+---
+
 ## 1.0.46 (2026-03-22)
 
 ### Özellikler

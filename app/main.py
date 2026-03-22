@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi import Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +12,7 @@ import pathlib
 import re
 from urllib.parse import quote, urlparse
 from time import perf_counter
-from typing import Literal
+from typing import Any, Literal
 import uvicorn
 from uuid import uuid4
 
@@ -623,6 +623,109 @@ async def list_statements(request: Request, limit: int = 50):
                 })
 
             return {"items": items}
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+def _compute_ingestion_stats(session) -> dict[str, Any]:
+    status_rows = session.execute(
+        select(StatementDocument.parse_status, func.count())
+        .select_from(StatementDocument)
+        .group_by(StatementDocument.parse_status)
+    ).all()
+    by_status: dict[str, int] = {str(r[0]): int(r[1]) for r in status_rows}
+    total = sum(by_status.values())
+    parsed_n = by_status.get("parsed", 0)
+    failed_n = by_status.get("parse_failed", 0)
+    pending_n = by_status.get("pending", 0)
+    unsupported_n = by_status.get("unsupported", 0)
+    non_parsed = failed_n + pending_n + unsupported_n
+    return {
+        "total": total,
+        "parsed": parsed_n,
+        "parse_failed": failed_n,
+        "pending": pending_n,
+        "unsupported": unsupported_n,
+        "non_parsed": non_parsed,
+    }
+
+
+def _ingestion_document_row(doc: StatementDocument, email_row: EmailIngested | None) -> dict[str, Any]:
+    parsed: dict[str, Any] | None = None
+    if doc.parsed_json:
+        try:
+            parsed = json.loads(doc.parsed_json)
+        except Exception:
+            parsed = None
+    tx_count = len(parsed.get("transactions", [])) if parsed else 0
+    notes = list(parsed.get("parse_notes", [])) if parsed else []
+    bank = coalesce_bank_display(parsed.get("bank_name")) if parsed else None
+    return {
+        "id": doc.id,
+        "file_name": doc.file_name,
+        "doc_type": doc.doc_type,
+        "parse_status": doc.parse_status,
+        "file_size_bytes": doc.file_size_bytes,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+        "email_subject": email_row.subject if email_row else None,
+        "bank_name": bank,
+        "transaction_count": tx_count,
+        "parse_notes": notes,
+    }
+
+
+@app.get("/api/ingestion/documents")
+async def list_ingestion_documents(
+    request: Request,
+    doc_filter: str = Query("all", alias="filter", description="all | non_parsed | parsed | parse_failed"),
+    limit: int = Query(200, ge=1, le=500),
+):
+    """All statement files (PDF/CSV) with parse status — parsed, failed, pending.
+
+    filter: all | non_parsed | parsed | parse_failed
+    """
+    bounded = min(max(limit, 1), 500)
+    fl = (doc_filter or "all").strip().lower()
+    if fl not in ("all", "non_parsed", "parsed", "parse_failed"):
+        fl = "all"
+
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            stats = _compute_ingestion_stats(session)
+
+            q = select(StatementDocument).order_by(desc(StatementDocument.id)).limit(bounded)
+            if fl == "non_parsed":
+                q = select(StatementDocument).where(StatementDocument.parse_status != "parsed").order_by(
+                    desc(StatementDocument.id)
+                ).limit(bounded)
+            elif fl == "parsed":
+                q = select(StatementDocument).where(StatementDocument.parse_status == "parsed").order_by(
+                    desc(StatementDocument.id)
+                ).limit(bounded)
+            elif fl == "parse_failed":
+                q = select(StatementDocument).where(StatementDocument.parse_status == "parse_failed").order_by(
+                    desc(StatementDocument.id)
+                ).limit(bounded)
+
+            docs = session.scalars(q).all()
+            items: list[dict[str, Any]] = []
+            for doc in docs:
+                email_row = session.get(EmailIngested, doc.email_ingested_id)
+                items.append(_ingestion_document_row(doc, email_row))
+
+            return {"stats": stats, "items": items, "filter": fl}
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.get("/api/ingestion/documents/stats")
+async def ingestion_documents_stats(request: Request):
+    """Lightweight counts for nav badges (no document rows)."""
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            return {"stats": _compute_ingestion_stats(session)}
     except (OperationalError, SQLAlchemyError) as exc:
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 

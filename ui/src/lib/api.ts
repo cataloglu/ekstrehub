@@ -108,6 +108,35 @@ export type StatementListResponse = {
   items: StatementItem[];
 };
 
+/** Tüm mail ekleri (PDF/CSV) — parse durumu dahil */
+export type IngestionStats = {
+  total: number;
+  parsed: number;
+  parse_failed: number;
+  pending: number;
+  unsupported: number;
+  non_parsed: number;
+};
+
+export type IngestionDocumentItem = {
+  id: number;
+  file_name: string;
+  doc_type: string;
+  parse_status: string;
+  file_size_bytes: number;
+  created_at: string | null;
+  email_subject: string | null;
+  bank_name: string | null;
+  transaction_count: number;
+  parse_notes: string[];
+};
+
+export type IngestionDocumentsResponse = {
+  stats: IngestionStats;
+  items: IngestionDocumentItem[];
+  filter: string;
+};
+
 export type ParserChangeItem = {
   id: number;
   status: "pending" | "approved" | "rejected";
@@ -365,6 +394,36 @@ export async function getStatements(
     throw new Error(await readErrorMessage(response, `Statements request failed with status ${response.status}`));
   }
   return (await response.json()) as StatementListResponse;
+}
+
+export async function getIngestionDocumentsStats(
+  options?: RequestOptions
+): Promise<{ stats: IngestionStats }> {
+  const response = await fetch("api/ingestion/documents/stats", {
+    headers: withRequestHeaders({ Accept: "application/json" }, options),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Dosya istatistikleri başarısız: ${response.status}`));
+  }
+  return (await response.json()) as { stats: IngestionStats };
+}
+
+export async function getIngestionDocuments(
+  filter: string,
+  limit: number,
+  options?: RequestOptions
+): Promise<IngestionDocumentsResponse> {
+  const params = new URLSearchParams({
+    filter: filter || "all",
+    limit: String(limit),
+  });
+  const response = await fetch(`api/ingestion/documents?${params}`, {
+    headers: withRequestHeaders({ Accept: "application/json" }, options),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Dosya listesi başarısız: ${response.status}`));
+  }
+  return (await response.json()) as IngestionDocumentsResponse;
 }
 
 export async function getParserChanges(
