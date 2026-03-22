@@ -24,6 +24,7 @@ from app.db.models import AuditLog, EmailIngested, MailAccount, MailIngestionRun
 from app.db.session import get_session_factory
 from app.ingestion.gmail_oauth import GmailOAuthError
 from app.ingestion.gmail_oauth_flow import build_auth_url, exchange_code_for_tokens
+from app.ingestion.bank_identification import coalesce_bank_display, normalize_optional_llm_str
 from app.ingestion.service import MailIngestionService
 from app.auto_sync import get_auto_sync_status, update_settings as update_auto_sync_settings, run_scheduler
 import app.app_settings as app_settings
@@ -607,8 +608,8 @@ async def list_statements(request: Request, limit: int = 50):
                     "file_size_bytes": doc.file_size_bytes,
                     "created_at": doc.created_at.isoformat() if doc.created_at else None,
                     "email_subject": email_row.subject if email_row else None,
-                    "bank_name": parsed.get("bank_name") if parsed else None,
-                    "card_number": parsed.get("card_number") if parsed else None,
+                    "bank_name": coalesce_bank_display(parsed.get("bank_name")) if parsed else None,
+                    "card_number": normalize_optional_llm_str(parsed.get("card_number")) if parsed else None,
                     "period_start": parsed.get("period_start") if parsed else None,
                     "period_end": parsed.get("period_end") if parsed else None,
                     "due_date": parsed.get("due_date") if parsed else None,
@@ -1066,7 +1067,7 @@ async def get_activity_log(request: Request, limit: int = 80):
                 if doc.parsed_json:
                     try:
                         parsed = json.loads(doc.parsed_json)
-                        bank_name = parsed.get("bank_name")
+                        bank_name = coalesce_bank_display(parsed.get("bank_name"))
                         tx_count = len(parsed.get("transactions", []))
                         parse_notes = parsed.get("parse_notes", [])
                     except Exception:

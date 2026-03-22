@@ -57,7 +57,8 @@ Kurallar:
 - Taksitli işlemlerde sadece bu döneme ait taksit tutarını yaz
 - Faiz (FIZ), BSMV, KKDF, aidat satırlarını da işlem olarak ekle
 - Kart numarasını gizlenmiş haliyle yaz (örn: 4548 08** **** 1234)
-- Eğer bir alan bulunamıyorsa null kullan
+- Eğer bir alan bulunamıyorsa JSON null kullan (tırnaksız). bank_name ve card_number için \
+asla "null", "none" veya "bilinmeyen" gibi metin yazma — bilinmiyorsa JSON null kullan.
 - SADECE JSON döndür, markdown code block kullanma, açıklama yazma"""
 
 _USER_PROMPT_TEMPLATE = """\

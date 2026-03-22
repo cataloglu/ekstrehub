@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
+from app.ingestion.bank_identification import (
+    canonical_bank_name,
+    normalize_bank_name,
+    normalize_optional_llm_str,
+)
+
 log = logging.getLogger(__name__)
 
 # ── Data classes ──────────────────────────────────────────────────────────────
@@ -50,9 +56,9 @@ def is_llm_failure_empty(ps: ParsedStatement) -> bool:
 _BANK_KEYWORDS: list[tuple[str, str]] = [
     ("denizbank", "DenizBank"),
     ("garanti", "Garanti BBVA"),
-    ("yapı kredi", "Yapi Kredi"),
-    ("yapikredi", "Yapi Kredi"),
-    ("ykb", "Yapi Kredi"),
+    ("yapı kredi", "Yapı Kredi"),
+    ("yapikredi", "Yapı Kredi"),
+    ("ykb", "Yapı Kredi"),
     ("akbank", "Akbank"),
     ("ziraat", "Ziraat Bankası"),
     ("vakıfbank", "VakıfBank"),
@@ -107,8 +113,8 @@ def _parse_float(val: Any) -> float | None:
 def _llm_result_to_parsed_statement(data: dict[str, Any]) -> ParsedStatement:
     """Convert the LLM's JSON output to a ParsedStatement."""
     ps = ParsedStatement()
-    ps.bank_name = data.get("bank_name") or None
-    ps.card_number = data.get("card_number") or None
+    ps.bank_name = canonical_bank_name(normalize_bank_name(data.get("bank_name")))
+    ps.card_number = normalize_optional_llm_str(data.get("card_number"))
     ps.statement_period_start = _parse_date(data.get("period_start"))
     ps.statement_period_end = _parse_date(data.get("period_end"))
     ps.due_date = _parse_date(data.get("due_date"))
@@ -178,9 +184,11 @@ def parse_statement(
     """
     text_fp = _text_fingerprint(text)
     bank_in = bank_name
+    # Normalize hints: LLM often emits the string "null" in JSON — treat as missing
+    bank_name = canonical_bank_name(normalize_bank_name(bank_name))
     # Auto-detect bank from PDF text if not identified from email
-    if not bank_name or bank_name.lower() in ("unknown", ""):
-        bank_name = _detect_bank_from_text(text)
+    if not bank_name:
+        bank_name = canonical_bank_name(_detect_bank_from_text(text))
 
     if bank_name:
         log.info("bank_identified bank=%s", bank_name)

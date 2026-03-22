@@ -18,6 +18,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import LearnedParserRule
+from app.ingestion.bank_identification import (
+    canonical_bank_name,
+    learned_rule_bank_keys,
+    normalize_bank_name,
+)
 from app.ingestion.statement_parser import ParsedStatement, ParsedTransaction
 
 log = logging.getLogger(__name__)
@@ -33,18 +38,21 @@ def fingerprint_text_sample(text: str) -> str:
 
 
 def load_learned_rule_dict(session: Session, bank_name: str | None) -> dict[str, Any] | None:
-    if not bank_name or bank_name.lower() in ("unknown", "bilinmeyen banka"):
+    bn = canonical_bank_name(normalize_bank_name(bank_name))
+    if not bn or bn.lower() in ("bilinmeyen banka",):
         return None
-    row = session.scalar(select(LearnedParserRule).where(LearnedParserRule.bank_name == bank_name))
-    if not row:
-        return None
-    try:
-        return json.loads(row.rules_json)
-    except Exception:
-        return None
+    for key in learned_rule_bank_keys(bn):
+        row = session.scalar(select(LearnedParserRule).where(LearnedParserRule.bank_name == key))
+        if row:
+            try:
+                return json.loads(row.rules_json)
+            except Exception:
+                return None
+    return None
 
 
 def upsert_learned_rule(session: Session, bank_name: str, rules: dict[str, Any], fingerprint: str | None) -> None:
+    bank_name = canonical_bank_name(normalize_bank_name(bank_name)) or bank_name
     js = json.dumps(rules, ensure_ascii=False)
     existing = session.scalar(select(LearnedParserRule).where(LearnedParserRule.bank_name == bank_name))
     if existing:
@@ -326,7 +334,8 @@ def maybe_train_learned_rules(
     """After LLM parse: derive regex rules and store (no extra call if disabled)."""
     if os.getenv("EKSTREHUB_DISABLE_LEARN_RULES", "").strip() in ("1", "true", "yes"):
         return
-    if not bank_name or bank_name.lower() in ("unknown", "bilinmeyen banka"):
+    bn = canonical_bank_name(normalize_bank_name(bank_name))
+    if not bn or bn.lower() in ("bilinmeyen banka",):
         return
     if "learned_local_rules" in (parsed.parse_notes or []):
         return
@@ -350,5 +359,5 @@ def maybe_train_learned_rules(
     if not rules:
         return
     fp = fingerprint_text_sample(text)
-    upsert_learned_rule(session, bank_name, rules, fp)
-    log.info("learned_rules_saved bank=%s matches_in_text=%d", bank_name, _count_rule_matches(text, rules))
+    upsert_learned_rule(session, bn, rules, fp)
+    log.info("learned_rules_saved bank=%s matches_in_text=%d", bn, _count_rule_matches(text, rules))

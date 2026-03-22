@@ -22,5 +22,5 @@ def test_detect_bank_name_from_sender_or_subject() -> None:
         MailIngestionService._detect_bank_name("ekstre@notify.garanti.com", "Kredi Karti Ekstresi")
         == "Garanti BBVA"
     )
-    assert MailIngestionService._detect_bank_name("notice@x.com", "YapiKredi Hesap Ozeti") == "Yapi Kredi"
+    assert MailIngestionService._detect_bank_name("notice@x.com", "YapiKredi Hesap Ozeti") == "Yapı Kredi"
     assert MailIngestionService._detect_bank_name("notice@x.com", "Random Subject") is None

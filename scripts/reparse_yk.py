@@ -15,7 +15,8 @@ acct = db.execute(
 
 # Get all YK docs
 docs = db.execute(
-    "SELECT id, file_name FROM statement_documents WHERE parsed_json LIKE '%Yapi Kredi%'"
+    "SELECT id, file_name FROM statement_documents WHERE "
+    "parsed_json LIKE '%Yapi Kredi%' OR parsed_json LIKE '%Yapı Kredi%'"
 ).fetchall()
 print(f"Found {len(docs)} Yapi Kredi documents to re-parse")
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.44] – 2026-03-22
+
+### Fixes
+- Bank name: LLM sometimes returns the string `"null"` (truthy); merge with email/PDF hints was skipped — normalized + canonical names (`app/ingestion/bank_identification.py`). API list/activity coalesces legacy stored values.
+- Email bank profiles use Turkish display names (`İş Bankası`, `Yapı Kredi`); learned rules lookup supports legacy DB keys.
+
+### Tests
+- `tests/test_bank_identification.py`: normalization, LLM null merge, learned-rule keys.
+
+---
+
 ## [1.0.43] – 2026-03-21
 
 ### Fixes

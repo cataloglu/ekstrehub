@@ -1,5 +1,16 @@
 # EkstreHub Changelog
 
+## 1.0.44 (2026-03-22)
+
+### Düzeltmeler
+- **Banka adı «null»**: LLM bazen JSON’da `bank_name` alanına metin `"null"` yazıyordu; Python’da bu değer dolu sayıldığı için e-posta/PDF’den gelen banka ipucu uygulanmıyordu. Tüm ipuçları `bank_identification` modülünde normalize + kanonik isim (İş/Yapı Kredi) ile birleştiriliyor; API’de eski kayıtlar da okunurken düzeltiliyor.
+- **Profil isimleri**: Gmail konusu/gönderenden tespit `İş Bankası` / `Yapı Kredi` ile hizalandı; öğrenilmiş kurallar tablosunda eski `Is Bankasi` / `Yapi Kredi` anahtarları hâlâ bulunur.
+
+### Testler
+- `tests/test_bank_identification.py` (normalize, LLM null → ipucu, learned keys).
+
+---
+
 ## 1.0.43 (2026-03-21)
 
 ### Düzeltmeler
