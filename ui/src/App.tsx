@@ -39,6 +39,7 @@ import {
   type MailAccount,
   type ParserChangeItem,
   type StatementItem,
+  type StatementReminder,
   type IngestionStats,
   type IngestionDocumentItem,
   type ActivityLogResponse,
@@ -104,6 +105,26 @@ function relActivityAge(ts: string | null): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`;
   return `${Math.floor(diff / 86400)} gün önce`;
 }
+
+/** Statement PDF notice — expired if past end of expires_on (local date). */
+function reminderDeadlinePassed(expiresOn: string | null | undefined): boolean {
+  if (!expiresOn) return false;
+  const end = new Date(`${expiresOn}T23:59:59`);
+  return end < new Date();
+}
+
+function countActiveReminders(reminders: StatementReminder[] | undefined): number {
+  if (!reminders?.length) return 0;
+  return reminders.filter((r) => !r.expires_on || !reminderDeadlinePassed(r.expires_on)).length;
+}
+
+const REMINDER_KIND_LABEL: Record<string, string> = {
+  expiry: "Son kullanma",
+  legal_warning: "Uyarı",
+  contract: "Sözleşme",
+  service_change: "Hizmet",
+  info: "Bilgi",
+};
 
 export function App() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -314,10 +335,18 @@ export function App() {
         pushLog("info", "parser", `reparse ok doc #${stmt.id} tx=${n}`);
         await reloadCoreData();
       } else {
-        const err = row?.error ?? r.message ?? "Bilinmeyen hata";
-        pushLog("error", "parser", `reparse doc #${stmt.id}: ${err}`);
+        const raw = row?.error ?? r.message ?? "Bilinmeyen hata";
+        const err =
+          raw === "pdf_not_found_in_imap"
+            ? "PDF postada bulunamadı (mesaj silinmiş / yanlış klasör)."
+            : raw === "email_or_account_missing"
+              ? "Bu ekstre için mail hesabı veya mesaj bağlantısı yok."
+              : raw.startsWith("pdf_extract_failed:")
+                ? "PDF okunamadı."
+                : raw;
+        pushLog("error", "parser", `reparse doc #${stmt.id}: ${raw}`);
         await reloadCoreData();
-        setErrorMessage(`Yeniden parse: ${err}`);
+        setErrorMessage(`Yeniden çöz: ${err}`);
       }
     } catch (e) {
       setErrorMessage(formatReparseFetchError(e));
@@ -988,6 +1017,45 @@ export function App() {
       .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
   }, [statements]);
 
+  /** Aktif PDF hatırlatmaları (son tarihi geçmemiş); puan / MaxiMil öne çıkar. */
+  const activeDashboardReminders = useMemo(() => {
+    type Row = {
+      stmtId: number;
+      bankName: string | null;
+      periodLabel: string;
+      fileName: string;
+      reminder: StatementReminder;
+      isPoints: boolean;
+    };
+    const rows: Row[] = [];
+    for (const s of statements) {
+      for (const r of s.statement_reminders ?? []) {
+        if (r.expires_on && reminderDeadlinePassed(r.expires_on)) continue;
+        const isPoints =
+          r.kind === "expiry" ||
+          /pazarama|maximil|maxipuan|puan/i.test(r.title + r.text);
+        rows.push({
+          stmtId: s.id,
+          bankName: s.bank_name,
+          periodLabel: `${s.period_start ?? "—"} — ${s.period_end ?? "—"}`,
+          fileName: s.file_name,
+          reminder: r,
+          isPoints,
+        });
+      }
+    }
+    rows.sort((a, b) => {
+      const ea = a.reminder.expires_on;
+      const eb = b.reminder.expires_on;
+      if (ea && !eb) return -1;
+      if (!ea && eb) return 1;
+      if (ea && eb) return ea.localeCompare(eb);
+      if (a.isPoints !== b.isPoints) return a.isPoints ? -1 : 1;
+      return a.reminder.title.localeCompare(b.reminder.title, "tr");
+    });
+    return rows;
+  }, [statements]);
+
   // Total debt = only unpaid (active) statements
   const totalDebt = useMemo(
     () => statements.filter((s) => !isPaid(s)).reduce((acc, s) => acc + (s.total_due_try ?? 0), 0),
@@ -1037,6 +1105,10 @@ export function App() {
 
   function daysUntil(dateStr: string): number {
     return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
+  }
+
+  function daysLeftUntilDate(dateStr: string): number {
+    return Math.ceil((new Date(`${dateStr}T12:00:00`).getTime() - Date.now()) / 86_400_000);
   }
 
   function fmtTry(n: number | null) {
@@ -1220,7 +1292,97 @@ export function App() {
                     </>
                   )}
                 </div>
+                {activeDashboardReminders.length > 0 && (
+                  <div className="kpiCard kpiCardWarn kpiCardClickable" role="button" tabIndex={0}
+                    onClick={() => {
+                      const el = document.querySelector(".pointsReminderSection");
+                      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && document.querySelector(".pointsReminderSection")?.scrollIntoView({ behavior: "smooth" })}
+                  >
+                    <p className="kpiLabel">Puan &amp; hatırlatma</p>
+                    <p className="kpiValue kpiSmall">{activeDashboardReminders.length}</p>
+                    <p className="kpiSub">Son tarih / uyarı — aşağı kaydır</p>
+                  </div>
+                )}
               </div>
+
+              {activeDashboardReminders.length > 0 && (
+                <section className="section pointsReminderSection">
+                  <div className="sectionHeader pointsReminderSectionHeader">
+                    <div>
+                      <h2 className="sectionTitle">Puanlar &amp; hatırlatmalar</h2>
+                      <p className="sectionSub">
+                        Pazarama, MaxiMil ve son kullanma tarihli bildirimler — harcamayı kaçırma.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="linkBtn"
+                      onClick={() => {
+                        setActiveTab("statements");
+                      }}
+                    >
+                      Ekstreler →
+                    </button>
+                  </div>
+                  <ul className="pointsReminderList">
+                    {activeDashboardReminders.map((row, idx) => {
+                      const { reminder: r } = row;
+                      const exp = r.expires_on;
+                      const days = exp ? daysLeftUntilDate(exp) : null;
+                      const urgent = exp != null && days != null && days >= 0 && days <= 30;
+                      return (
+                        <li
+                          key={`${row.stmtId}-${idx}-${r.title.slice(0, 24)}`}
+                          className={`pointsReminderRow${row.isPoints ? " pointsReminderRowPoints" : ""}${urgent ? " pointsReminderRowUrgent" : ""}`}
+                        >
+                          <div className="pointsReminderIcon" aria-hidden>
+                            {row.isPoints ? "🎁" : "📌"}
+                          </div>
+                          <div className="pointsReminderBody">
+                            <div className="pointsReminderTitleRow">
+                              <span className="pointsReminderTitle">{r.title}</span>
+                              <span className="pointsReminderKind">
+                                {REMINDER_KIND_LABEL[r.kind] ?? r.kind}
+                              </span>
+                            </div>
+                            <div className="pointsReminderMeta">
+                              <span className="pointsReminderBank">{row.bankName ?? "—"}</span>
+                              <span className="pointsReminderSep">·</span>
+                              <span className="pointsReminderPeriod">{row.periodLabel}</span>
+                              <span className="pointsReminderSep">·</span>
+                              <span className="pointsReminderFile" title={row.fileName}>
+                                {row.fileName.length > 42 ? `${row.fileName.slice(0, 40)}…` : row.fileName}
+                              </span>
+                            </div>
+                            {exp != null && (
+                              <div className="pointsReminderDateRow">
+                                <span className={urgent ? "pointsReminderUrgent" : "pointsReminderDateLabel"}>
+                                  Son kullanma: {exp}
+                                  {days != null && days >= 0 && (
+                                    <strong> ({days} gün kaldı)</strong>
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="pointsReminderOpenBtn"
+                            onClick={() => {
+                              setActiveTab("statements");
+                              setExpandedStatementId(row.stmtId);
+                            }}
+                          >
+                            Aç
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
 
               {bankSummaries.length > 0 ? (
                 <>
@@ -1348,6 +1510,12 @@ export function App() {
                     <div className="healthItem">
                       <span className="healthLabel">Ortam</span>
                       <span className="healthValue valMuted">{health.environment}</span>
+                    </div>
+                    <div className="healthItem">
+                      <span className="healthLabel">Sürüm</span>
+                      <span className="healthValue valMuted" title="HA add-on config.yaml ile aynı">
+                        {health.addon_version ?? "—"}
+                      </span>
                     </div>
                   </div>
                 </section>
@@ -1563,6 +1731,14 @@ export function App() {
                                   ! İşlem yok
                                 </span>
                               )}
+                              {countActiveReminders(stmt.statement_reminders) > 0 && (
+                                <span
+                                  className="parseNoteBadge parseNoteReminder"
+                                  title="PDF’teki hatırlatmalar (puan son tarihi, uyarılar vb.)"
+                                >
+                                  📌 {countActiveReminders(stmt.statement_reminders)} hatırlatma
+                                </span>
+                              )}
                             </div>
                             <div className="stmtPeriod">
                               {stmtMatchingTxCount[stmt.id] != null ? (
@@ -1605,6 +1781,38 @@ export function App() {
 
                         {isOpen && (
                           <div className="txWrapper">
+                            {(stmt.statement_reminders?.length ?? 0) > 0 && (
+                              <div className="stmtReminders">
+                                <div className="stmtRemindersTitle">Ekstre hatırlatmaları</div>
+                                <p className="stmtRemindersHint">
+                                  PDF’teki özel bildirimler; son kullanma tarihi geçince soluk gösterilir.
+                                </p>
+                                <ul className="stmtRemindersList">
+                                  {(stmt.statement_reminders ?? []).map((r, ri) => {
+                                    const expired = r.expires_on ? reminderDeadlinePassed(r.expires_on) : false;
+                                    const kind = REMINDER_KIND_LABEL[r.kind] ?? r.kind;
+                                    return (
+                                      <li
+                                        key={ri}
+                                        className={`stmtReminder${expired ? " stmtReminderExpired" : ""}`}
+                                      >
+                                        <div className="stmtReminderHead">
+                                          <strong className="stmtReminderTitle">{r.title}</strong>
+                                          <span className="stmtReminderKind">{kind}</span>
+                                          {r.expires_on && (
+                                            <span className={expired ? "stmtReminderDateExpired" : "stmtReminderDate"}>
+                                              {expired ? "Süresi doldu · " : "Son tarih · "}
+                                              {r.expires_on}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="stmtReminderText">{r.text}</div>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            )}
                             {stmt.transactions.length > 8 && (
                               <div className="txFilterBar">
                                 <input

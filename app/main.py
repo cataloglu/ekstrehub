@@ -19,6 +19,7 @@ from uuid import uuid4
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
+from app.addon_version import read_addon_version
 from app.config import get_settings, mask_secret
 from app.db.models import AuditLog, EmailIngested, MailAccount, MailIngestionRun, StatementDocument
 from app.db.session import get_session_factory
@@ -81,8 +82,12 @@ async def lifespan(_: FastAPI):
     except asyncio.CancelledError:
         pass
 
-
-app = FastAPI(title="EkstreHub API", version="1.0.0-alpha.1", lifespan=lifespan)
+_ADDON_VER = read_addon_version()
+app = FastAPI(
+    title="EkstreHub API",
+    version=_ADDON_VER or "dev",
+    lifespan=lifespan,
+)
 
 
 @app.exception_handler(HTTPException)
@@ -146,6 +151,7 @@ async def health():
     return {
         "status": "ok",
         "service": "ekstrehub-api",
+        "addon_version": read_addon_version(),
         "environment": settings.app_env,
         "mail_ingestion_enabled": settings.mail_ingestion_enabled,
         "masked_imap_user": mask_secret(settings.imap_user),
@@ -620,6 +626,7 @@ async def list_statements(request: Request, limit: int = 50):
                     "transaction_count": len(parsed.get("transactions", [])) if parsed else 0,
                     "transactions": parsed.get("transactions", []) if parsed else [],
                     "parse_notes": parsed.get("parse_notes", []) if parsed else [],
+                    "statement_reminders": parsed.get("statement_reminders", []) if parsed else [],
                 })
 
             return {"items": items}

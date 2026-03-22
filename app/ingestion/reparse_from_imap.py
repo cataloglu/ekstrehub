@@ -16,7 +16,14 @@ from app.ingestion.gmail_oauth import refresh_access_token
 from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_learned_rules
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import runtime_from_mail_account
-from app.ingestion.statement_parser import _detect_bank_from_text, is_llm_failure_empty, parse_statement
+from app.ingestion.bank_identification import canonical_bank_name, normalize_bank_name
+from app.ingestion.statement_parser import (
+    is_false_fintech_bank_name,
+    is_llm_failure_empty,
+    parse_statement,
+    parsed_statement_to_storage_dict,
+    resolve_bank_hint,
+)
 import app.app_settings as app_settings_module
 
 log = logging.getLogger(__name__)
@@ -152,28 +159,20 @@ def fetch_pdf_bytes_for_statement(
 
 
 def _result_to_json(result: Any) -> str:
-    return json.dumps(
-        {
-            "bank_name": result.bank_name,
-            "card_number": result.card_number,
-            "period_start": str(result.statement_period_start) if result.statement_period_start else None,
-            "period_end": str(result.statement_period_end) if result.statement_period_end else None,
-            "due_date": str(result.due_date) if result.due_date else None,
-            "total_due_try": result.total_due_try,
-            "minimum_due_try": result.minimum_due_try,
-            "transactions": [
-                {
-                    "date": str(tx.date) if tx.date else None,
-                    "description": tx.description,
-                    "amount": tx.amount,
-                    "currency": tx.currency,
-                }
-                for tx in result.transactions
-            ],
-            "parse_notes": result.parse_notes,
-        },
-        ensure_ascii=False,
-    )
+    return json.dumps(parsed_statement_to_storage_dict(result), ensure_ascii=False)
+
+
+def _coalesce_reparse_bank_hint(pj_bank: str | None, email_bank: str | None) -> str | None:
+    """Prefer real issuer from JSON; if JSON is Param/Papara, use mail bank when it is real."""
+    pj_c = canonical_bank_name(normalize_bank_name(pj_bank)) if pj_bank else None
+    em_c = canonical_bank_name(normalize_bank_name(email_bank)) if email_bank else None
+    if pj_c and not is_false_fintech_bank_name(pj_bank):
+        return pj_c
+    if em_c and not is_false_fintech_bank_name(email_bank):
+        return em_c
+    if pj_c:
+        return pj_c
+    return em_c
 
 
 def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: imaplib.IMAP4_SSL) -> dict[str, Any]:
@@ -195,18 +194,18 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
     except Exception as exc:
         return {"doc_id": doc.id, "ok": False, "error": f"pdf_extract_failed:{exc}"}
 
-    bank_hint = None
+    pj_bank: str | None = None
     if doc.parsed_json:
         try:
             pj = json.loads(doc.parsed_json)
-            bank_hint = pj.get("bank_name")
+            pj_bank = pj.get("bank_name")
         except Exception:
             pass
-    if not bank_hint and email_row.bank_name:
-        bank_hint = email_row.bank_name
+    bank_hint = _coalesce_reparse_bank_hint(pj_bank, email_row.bank_name)
 
-    bank = bank_hint or _detect_bank_from_text(text)
-    learned = load_learned_rule_dict(session, bank)
+    # Learned rules key must not use stale "Param" — same resolution as parse_statement
+    bank_for_rules = resolve_bank_hint(bank_hint, text)
+    learned = load_learned_rule_dict(session, bank_for_rules)
 
     llm = app_settings_module.get_llm_config()
     llm_url = llm["llm_api_url"] if llm.get("llm_enabled") else ""
@@ -226,7 +225,7 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
         and "llm_parsed" in (result.parse_notes or [])
         and len(result.transactions) > 0
     ):
-        maybe_train_learned_rules(session, result.bank_name or bank, text, result, llm)
+        maybe_train_learned_rules(session, result.bank_name or bank_for_rules, text, result, llm)
 
     doc.parsed_json = _result_to_json(result)
     if is_llm_failure_empty(result):
@@ -377,6 +376,20 @@ def run_batch_reparse(scope: str, doc_ids: list[int], max_docs: int = 40) -> dic
                 mail.logout()
             except Exception:
                 pass
+
+    # Docs skipped above (no mail account etc.) must still return an error row — else UI shows nothing
+    scheduled_ids = {d.id for docs in by_account.values() for d in docs}
+    for doc_id in ids:
+        if doc_id in scheduled_ids:
+            continue
+        with session_factory() as session:
+            doc = session.get(StatementDocument, doc_id)
+            if not doc:
+                results.append({"doc_id": doc_id, "ok": False, "error": "doc_gone"})
+            elif doc.doc_type != "pdf":
+                results.append({"doc_id": doc_id, "ok": False, "error": "not_pdf"})
+            else:
+                results.append({"doc_id": doc_id, "ok": False, "error": "email_or_account_missing"})
 
     ok_n = sum(1 for r in results if r.get("ok"))
     return {

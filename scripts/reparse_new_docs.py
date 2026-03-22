@@ -4,7 +4,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.ingestion.pdf_extractor import extract_text_from_pdf
-from app.ingestion.statement_parser import parse_statement
+from app.ingestion.statement_parser import parse_statement, parsed_statement_to_storage_dict
 from datetime import date
 
 IMAP_HOST = "imap.gmail.com"
@@ -44,27 +44,7 @@ def fetch_pdf(message_id: str, filename: str):
 
 
 def parsed_to_json(result) -> str:
-    def _d(d):
-        return d.isoformat() if d else None
-    return json.dumps({
-        "bank_name": result.bank_name,
-        "card_number": result.card_number,
-        "period_start": _d(result.statement_period_start),
-        "period_end": _d(result.statement_period_end),
-        "due_date": _d(result.due_date),
-        "total_due_try": result.total_due_try,
-        "minimum_due_try": result.minimum_due_try,
-        "parse_notes": result.parse_notes,
-        "transactions": [
-            {
-                "date": _d(tx.transaction_date),
-                "description": tx.description,
-                "amount": tx.amount,
-                "currency": tx.currency,
-            }
-            for tx in result.transactions
-        ],
-    }, ensure_ascii=False)
+    return json.dumps(parsed_statement_to_storage_dict(result), ensure_ascii=False)
 
 
 conn = sqlite3.connect("dev-local.db")

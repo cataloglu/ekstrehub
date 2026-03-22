@@ -1,6 +1,8 @@
 export type HealthResponse = {
   status: string;
   service: string;
+  /** Home Assistant add-on sürümü (`ekstrehub/config.yaml` → image ile aynı) */
+  addon_version?: string | null;
   environment: string;
   mail_ingestion_enabled: boolean;
   masked_imap_user: string;
@@ -84,6 +86,14 @@ export type StatementTransaction = {
   currency: string;
 };
 
+/** PDF notices: Pazarama/MaxiMil expiry, legal warnings, contract updates (from parser heuristics). */
+export type StatementReminder = {
+  title: string;
+  text: string;
+  kind: string;
+  expires_on: string | null;
+};
+
 export type StatementItem = {
   id: number;
   file_name: string;
@@ -102,6 +112,7 @@ export type StatementItem = {
   transaction_count: number;
   transactions: StatementTransaction[];
   parse_notes: string[];
+  statement_reminders?: StatementReminder[];
 };
 
 export type StatementListResponse = {

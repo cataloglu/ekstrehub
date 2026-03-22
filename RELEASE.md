@@ -5,8 +5,8 @@ Yeni sürüm çıkarmak için aşağıdaki adımları izle.
 ## 1. Versiyonu Güncelle
 
 ```bash
-# ekstrehub/config.yaml
-version: "1.0.2"   # Yeni versiyon
+# ekstrehub/config.yaml  ← Home Assistant “Güncelle” bunu görür
+version: "1.0.50"   # Yeni versiyon (her release’de artır)
 ```
 
 ## 2. CHANGELOG Güncelle

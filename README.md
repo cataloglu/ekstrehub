@@ -106,6 +106,17 @@ Add-on'u başlat → **Aç** butonuna tıkla → EkstreHub açılır.
 ### Uygulama açılmıyor
 - Add-on loglarını kontrol et (HA → Add-ons → EkstreHub → Günlükler)
 
+### Güncellemeyi göremiyorum (eski arayüz / eski davranış)
+Arayüz **önceden derlenmiş** dosyalardan (`ui/dist`) gelir; kodu güncelledikten sonra mutlaka **yeniden derle + yeniden başlat**.
+
+| Nerede çalışıyorsun? | Ne yapmalısın? |
+|----------------------|----------------|
+| **Home Assistant Add-on** | Depodan son sürümü al → Add-on’da **Yeniden oluştur (Rebuild)** veya güncelle → **Yeniden başlat**. Sadece “yeniden başlat” yetmez; image yeniden build edilmeli (Docker içinde `npm run build` çalışır). |
+| **Yerel / geliştirme** | `cd ui && npm run build` → FastAPI / uvicorn sürecini **durdur ve tekrar başlat**. |
+| **Tarayıcı** | Zorla yenile: **Ctrl+Shift+R** (Windows) veya önbelleği atlayarak yenile. |
+
+Backend (Python) değişiklikleri için de süreç **yeniden başlatma** gerektirir; sadece sayfayı yenilemek yetmez.
+
 ---
 
 ## Lisans

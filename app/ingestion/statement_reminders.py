@@ -1,0 +1,270 @@
+"""Extract bank statement notices / reminders from raw PDF text (Turkish).
+
+These are marketing, legal, and expiry notices — not transaction lines.
+Heuristics + date extraction; no LLM required.
+"""
+from __future__ import annotations
+
+import hashlib
+import re
+from datetime import date
+from typing import Any
+
+# Paragraphs matching any of these (case-insensitive) are candidate reminders
+_TRIGGER = re.compile(
+    r"(pazarama|maximil|maxipuan|puanlarınız|puanınız|kullanım\s+süresi|"
+    r"sona\s+erm|hatırlat|hatirlat|mesajınız\s+var|mesajiniz\s+var|"
+    r"\basgari\b|nakit\s+çekilemeyecek|nakit\s+cekilemeyecek|dönem\s+borcunuzun|donem\s+borcunuzun|"
+    r"sözleşme\s+değişikliği|sozlesme\s+degisikligi|üstü\s+kalsın|ustu\s+kalsin|"
+    r"yuvarlama\s+tutarı|yuvarlama\s+tutari|kredi\s+kartı\s+hesap\s+özeti|"
+    r"kredi\s+karti\s+hesap\s+ozeti)",
+    re.IGNORECASE,
+)
+
+_DATE_DMY = re.compile(r"(\d{1,2})[./](\d{1,2})[./](\d{4})")
+
+_TR_MONTHS = {
+    "ocak": 1,
+    "şubat": 2,
+    "subat": 2,
+    "mart": 3,
+    "nisan": 4,
+    "mayıs": 5,
+    "mayis": 5,
+    "haziran": 6,
+    "temmuz": 7,
+    "ağustos": 8,
+    "agustos": 8,
+    "eylül": 9,
+    "eylul": 9,
+    "ekim": 10,
+    "kasım": 11,
+    "kasim": 11,
+    "aralık": 12,
+    "aralik": 12,
+}
+
+_DATE_TR_WORD = re.compile(
+    r"(\d{1,2})\s+(Ocak|Şubat|Subat|Mart|Nisan|Mayıs|Mayis|Haziran|Temmuz|"
+    r"Ağustos|Agustos|Eylül|Eylul|Ekim|Kasım|Kasim|Aralık|Aralik)\s+(\d{4})",
+    re.IGNORECASE,
+)
+
+
+def _parse_dates_from_text(text: str) -> list[date]:
+    out: list[date] = []
+    for m in _DATE_DMY.finditer(text):
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            out.append(date(y, mo, d))
+        except ValueError:
+            pass
+    for m in _DATE_TR_WORD.finditer(text):
+        d = int(m.group(1))
+        mon_raw = m.group(2).lower()
+        mon = _TR_MONTHS.get(mon_raw)
+        y = int(m.group(3))
+        if mon:
+            try:
+                out.append(date(y, mon, d))
+            except ValueError:
+                pass
+    return out
+
+
+def _pick_expiry_date(paragraph: str, dates: list[date]) -> date | None:
+    """Prefer the date that appears in expiry / deadline context."""
+    if not dates:
+        return None
+    low = paragraph.lower()
+    # Phrases like "31.12.2025 tarihinde sona ermektedir"
+    if "sona erm" in low or "kullanım süresi" in low or "kullanim suresi" in low:
+        return max(dates)
+    if "kadar" in low:
+        return max(dates)
+    if len(dates) == 1:
+        return dates[0]
+    return max(dates)
+
+
+def _classify_kind(text: str) -> str:
+    low = text.lower()
+    if any(
+        x in low
+        for x in (
+            "kullanım süresi",
+            "kullanim suresi",
+            "sona erm",
+            "pazarama",
+            "maximil",
+            "maxipuan",
+            "puan",
+        )
+    ):
+        return "expiry"
+    if any(
+        x in low
+        for x in (
+            "asgari",
+            "nakit çekilemeyecek",
+            "nakit cekilemeyecek",
+            "dönem borcunuzun",
+            "donem borcunuzun",
+            "limit artışı",
+            "limit artisi",
+        )
+    ):
+        return "legal_warning"
+    if "sözleşme" in low or "sozlesme" in low or "değişikliği" in low or "degisligi" in low:
+        return "contract"
+    if "üstü kalsın" in low or "ustu kalsin" in low or "yuvarlama" in low:
+        return "service_change"
+    return "info"
+
+
+def _title_for(text: str, kind: str) -> str:
+    low = text.lower()
+    if "pazarama" in low:
+        return "Pazarama puanı"
+    if "maximil" in low or "maxipuan" in low or "maxi miller" in low:
+        return "MaxiMil / MaxiPuan"
+    if kind == "legal_warning":
+        return "Ödeme / limit uyarısı"
+    if kind == "contract":
+        return "Sözleşme bildirimi"
+    if kind == "service_change":
+        return "Hizmet / ücret güncellemesi"
+    if "mesajınız" in low or "mesajiniz" in low:
+        return "Banka mesajı"
+    line = text.strip().split("\n")[0] if text.strip() else ""
+    if len(line) > 90:
+        return line[:87] + "…"
+    return line or "Hatırlatma"
+
+
+def _is_noise(p: str) -> bool:
+    s = p.strip().lower()
+    if len(s) < 12:
+        return True
+    if re.match(r"^sayfa\s+\d+", s):
+        return True
+    if s.startswith("belge numarası") or s.startswith("belge numarasi"):
+        return True
+    if re.match(r"^\d+\s*[-–]\s*\d+$", s):  # doc numbers
+        return False
+    return False
+
+
+def _split_into_notice_blocks(text: str) -> list[str]:
+    """Split dense PDF text (mostly single \\n) into separate notices."""
+    lines = text.split("\n")
+    starters = (
+        re.compile(r"^MESAJINIZ\s+VAR\b", re.I),
+        re.compile(
+            r"^\d{4}\s+yılında\s+kazandığınız|^\d{4}\s+yılında\s+kazanılan|"
+            r"^\d{4}\s+yilinda\s+kazandiniz|^\d{4}\s+yilinda\s+kazanilan",
+            re.I,
+        ),
+        re.compile(r"^Sözleşme\s+değişikliği|^Sozlesme\s+degisligi", re.I),
+        re.compile(r"^KREDİ\s+KARTI\s+HESAP\s+ÖZETİ|^KREDI\s+KARTI\s+HESAP\s+OZETI", re.I),
+        re.compile(r"^Üstü\s+Kalsın|^Ustu\s+Kalsin", re.I),
+    )
+
+    blocks: list[list[str]] = []
+    current: list[str] = []
+
+    def is_start(s: str) -> bool:
+        t = s.strip()
+        if not t:
+            return False
+        for rx in starters:
+            if rx.search(t):
+                return True
+        return False
+
+    for line in lines:
+        if is_start(line) and current:
+            blocks.append(current)
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        blocks.append(current)
+
+    return ["\n".join(b).strip() for b in blocks if "".join(b).strip()]
+
+
+def _merge_header_paragraphs(paras: list[str]) -> list[str]:
+    """Merge 'MESAJINIZ VAR' + body into one block."""
+    out: list[str] = []
+    i = 0
+    while i < len(paras):
+        p = paras[i].strip()
+        if (
+            i + 1 < len(paras)
+            and len(p) < 50
+            and re.search(r"mesajınız\s+var|mesajiniz\s+var", p, re.I)
+            and _TRIGGER.search(paras[i + 1])
+        ):
+            out.append(p + "\n\n" + paras[i + 1].strip())
+            i += 2
+            continue
+        out.append(p)
+        i += 1
+    return out
+
+
+def extract_statement_reminders(text: str) -> list[dict[str, Any]]:
+    """Return structured reminders from full PDF text (deduplicated)."""
+    if not text or not text.strip():
+        return []
+
+    raw = text.replace("\r\n", "\n").replace("\r", "\n")
+    parts = re.split(r"\n\s*\n+", raw)
+    paras = [p.strip() for p in parts if p.strip()]
+    paras = _merge_header_paragraphs(paras)
+
+    # Dense PDFs: few blank lines → one huge "paragraph" — split on notice line-starts
+    expanded: list[str] = []
+    for p in paras:
+        if len(p) > 500:
+            expanded.extend(_split_into_notice_blocks(p))
+        else:
+            expanded.append(p)
+
+    seen: set[str] = set()
+    reminders: list[dict[str, Any]] = []
+
+    for para in expanded:
+        if _is_noise(para) and len(para) < 80:
+            continue
+        if not _TRIGGER.search(para):
+            continue
+        if len(para) < 30:
+            continue
+
+        norm = re.sub(r"\s+", " ", para).strip().lower()
+        digest = hashlib.sha256(norm.encode("utf-8", errors="ignore")).hexdigest()[:16]
+        if digest in seen:
+            continue
+        seen.add(digest)
+
+        kind = _classify_kind(para)
+        dates = _parse_dates_from_text(para)
+        exp = _pick_expiry_date(para, dates) if kind == "expiry" or dates else None
+        if kind != "expiry" and dates:
+            # Still attach primary deadline if any date looks like a deadline
+            low = para.lower()
+            if "tarihine kadar" in low or "tarihinde sona" in low:
+                exp = _pick_expiry_date(para, dates)
+
+        title = _title_for(para, kind)
+        item: dict[str, Any] = {
+            "title": title,
+            "text": para[:4000],
+            "kind": kind,
+            "expires_on": exp.isoformat() if exp else None,
+        }
+        reminders.append(item)
+
+    return reminders

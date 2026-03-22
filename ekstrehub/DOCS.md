@@ -24,6 +24,7 @@ Kredi kartı ekstrelerini Gmail'den otomatik indirir, AI ile parse eder ve Home 
 10. **Test: sadece öğrenilmiş kurallar (1.0.40+)** — Ayarlar → **Sistem** altında sadece banka başına kayıtlı **regex kuralları** silinir (onay `KURALLAR`); ekstreler kalır. Ardından **Yeniden çöz** veya AI Parser’daki toplu reparse ile LLM akışını tekrar dene.
 11. **Parser logları (1.0.41+)** — Sorunlu ekstreleri ayırt etmek için loglarda aynı PDF için sabit **`text_fp`** (16 hex) kullanılır; `parser_parse_done path=...` ile hangi yolun (yerel regex / LLM / hata) seçildiğini görebilirsin. `learned_skip reason=...` öğrenilmiş kuralın neden tutmadığını yazar.
 12. **Loglar ekranı (1.0.42+)** — **Loglar** sekmesinde aktivite özetini **tablo** veya **düz metin** olarak gör; **Panoya kopyala** ve **.txt indir** çıktısı sekme (TSV) ayrımlıdır, Excel’e yapıştırılabilir. **Ayarlar → Sistem Logları** aynı şekilde istemci tarafı olayları listeler.
+13. **Dosyalar (1.0.47+)** — **Dosyalar** sekmesinde mailden indirilen **tüm** PDF/CSV ekleri ve parse durumu (başarılı / hatalı / bekleyen). **Ekstreler** sekmesi yalnızca başarılı analizi listeler; «11 dosya / 9 ekstre» gibi fark burada netleşir. PDF açma ve yeniden çözüm linkleri satırda.
 
 ## Gmail OAuth (Google ile Bağlan)
 

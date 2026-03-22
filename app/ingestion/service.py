@@ -19,7 +19,12 @@ from app.ingestion.mail_client import IMAPMailClient
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import ImapRuntimeConfig, runtime_from_env, runtime_from_mail_account
 from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_learned_rules
-from app.ingestion.statement_parser import _detect_bank_from_text, is_llm_failure_empty, parse_statement
+from app.ingestion.statement_parser import (
+    _detect_bank_from_text,
+    is_llm_failure_empty,
+    parse_statement,
+    parsed_statement_to_storage_dict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -237,25 +242,7 @@ class MailIngestionService:
 
                                 parse_status = "parse_failed" if is_llm_failure_empty(result) else "parsed"
                                 parsed_json = json.dumps(
-                                    {
-                                        "bank_name": result.bank_name,
-                                        "card_number": result.card_number,
-                                        "period_start": str(result.statement_period_start) if result.statement_period_start else None,
-                                        "period_end": str(result.statement_period_end) if result.statement_period_end else None,
-                                        "due_date": str(result.due_date) if result.due_date else None,
-                                        "total_due_try": result.total_due_try,
-                                        "minimum_due_try": result.minimum_due_try,
-                                        "transactions": [
-                                            {
-                                                "date": str(tx.date) if tx.date else None,
-                                                "description": tx.description,
-                                                "amount": tx.amount,
-                                                "currency": tx.currency,
-                                            }
-                                            for tx in result.transactions
-                                        ],
-                                        "parse_notes": result.parse_notes,
-                                    },
+                                    parsed_statement_to_storage_dict(result),
                                     ensure_ascii=False,
                                 )
                                 log.info(

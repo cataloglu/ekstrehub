@@ -47,6 +47,9 @@ COPY app/        ./app/
 COPY migrations/ ./migrations/
 COPY alembic.ini .
 
+# Add-on manifest (HA mağaza / güncelleme sürümü — health API ile okunur)
+COPY ekstrehub/config.yaml ./addon_config.yaml
+
 # Built frontend assets (served by FastAPI in production)
 COPY --from=frontend-builder /build/dist ./ui/dist/
 

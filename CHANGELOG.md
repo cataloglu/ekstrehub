@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.0.50] – 2026-02-21
+
+### Fixes
+- **Yeniden çöz + yanlış Param bankası**: `parsed_json` içinde `Param` kalsa bile artık **e-posta bankası** (gerçek banka) öncelikli; Param/Papara ipucu yok sayılıp PDF’den `resolve_bank_hint` ile İş vb. tespit edilir. Learned-rules anahtarı da Param’a kilitlenmez.
+- **Reparse sessiz başarısızlık**: Mail hesabı olmayan ekstreler için sonuçta `email_or_account_missing` dönülür; UI’da Türkçe açıklama.
+
+---
+
+## [1.0.49] – 2026-02-21
+
+### Features
+- **Özet** sekmesi: **Puanlar & hatırlatmalar** paneli — Pazarama / MaxiMil ve son kullanma tarihli tüm aktif bildirimler tek listede; son tarihe göre sıralı, 30 gün içinde kırmızı vurgu, **Aç** ile ilgili ekstre genişletilir. KPI kartı: aktif hatırlatma sayısı (tıklayınca listeye kaydırır).
+
+---
+
+## [1.0.48] – 2026-02-21
+
+### Features
+- **Ekstre hatırlatmaları**: PDF metninden Pazarama / MaxiMil son kullanma, asgari ödeme uyarısı, sözleşme / Üstü Kalsın bildirimleri gibi bloklar çıkarılır (`statement_reminders` in `parsed_json`). API `GET /api/statements` yanıtına dahil; **Ekstreler** kartında 📌 rozet + açılınca liste (tarih geçince soluk).
+
+---
+
 ## [1.0.47] – 2026-03-22
 
 ### Features

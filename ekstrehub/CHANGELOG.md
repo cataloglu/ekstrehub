@@ -1,5 +1,23 @@
 # EkstreHub Changelog
 
+## 1.0.50 (2026-02-21)
+
+### Düzeltmeler
+- **Yeniden çöz + Param**: Veritabanında `Param` yazıyorsa e-posta / PDF bankası öncelikli; learned-rules Param’a kilitlenmez.
+- Reparse hatalarında anlamlı Türkçe mesaj (PDF bulunamadı, mail hesabı yok).
+
+## 1.0.49 (2026-02-21)
+
+### Özellikler
+- **Özet**: Puanlar & hatırlatmalar paneli (Pazarama / MaxiMil son tarihleri), KPI rozeti.
+
+## 1.0.48 (2026-02-21)
+
+### Özellikler
+- PDF’ten **ekstre hatırlatmaları** (`statement_reminders`): puan son tarihi, uyarılar.
+
+---
+
 ## 1.0.47 (2026-03-22)
 
 ### Özellikler

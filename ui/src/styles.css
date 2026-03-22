@@ -377,6 +377,13 @@ body {
   background: linear-gradient(135deg, var(--surface2) 80%, rgba(251,191,36,0.04));
 }
 
+.kpiCardClickable {
+  cursor: pointer;
+}
+.kpiCardClickable:hover {
+  border-color: rgba(251,191,36,0.45);
+}
+
 .kpiLabel {
   font-size: 0.7rem;
   color: var(--text3);
@@ -419,6 +426,151 @@ body {
   color: var(--text3);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.sectionSub {
+  font-size: 0.78rem;
+  color: var(--text3);
+  margin: 6px 0 0;
+  line-height: 1.4;
+  max-width: 52ch;
+}
+
+.pointsReminderSection {
+  margin-bottom: 24px;
+}
+
+.pointsReminderSectionHeader {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.pointsReminderList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pointsReminderRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+}
+
+.pointsReminderRowPoints {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: linear-gradient(135deg, var(--surface2) 70%, rgba(251, 191, 36, 0.07));
+}
+
+.pointsReminderRowUrgent {
+  border-color: rgba(248, 113, 113, 0.35);
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.08);
+}
+
+.pointsReminderIcon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.pointsReminderBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.pointsReminderTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+}
+
+.pointsReminderTitle {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.pointsReminderKind {
+  font-size: 0.62rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface3);
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pointsReminderMeta {
+  font-size: 0.74rem;
+  color: var(--text3);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.pointsReminderSep {
+  margin: 0 4px;
+  opacity: 0.5;
+}
+
+.pointsReminderBank {
+  font-weight: 600;
+  color: var(--text2);
+}
+
+.pointsReminderFile {
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+}
+
+.pointsReminderDateRow {
+  margin-top: 6px;
+  font-size: 0.78rem;
+}
+
+.pointsReminderDateLabel {
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+}
+
+.pointsReminderUrgent {
+  color: #f87171;
+  font-variant-numeric: tabular-nums;
+}
+
+.pointsReminderOpenBtn {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+.pointsReminderOpenBtn:hover {
+  background: rgba(99, 102, 241, 0.12);
+}
+
+@media (max-width: 600px) {
+  .pointsReminderRow {
+    flex-wrap: wrap;
+  }
+  .pointsReminderOpenBtn {
+    width: 100%;
+    margin-top: 4px;
+  }
 }
 
 .linkBtn {
@@ -614,6 +766,93 @@ body {
 .txWrapper {
   border-top: 1px solid var(--border);
   padding: 10px 16px 14px;
+}
+
+/* Statement PDF notices (Pazarama / MaxiMil / legal text) */
+.stmtReminders {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.06);
+}
+.stmtRemindersTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.stmtRemindersHint {
+  font-size: 0.72rem;
+  color: var(--text3);
+  margin: 0 0 10px;
+  line-height: 1.35;
+}
+.stmtRemindersList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.stmtReminder {
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--surface2);
+}
+.stmtReminderExpired {
+  opacity: 0.55;
+  border-style: dashed;
+}
+.stmtReminderHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin-bottom: 6px;
+}
+.stmtReminderTitle {
+  font-size: 0.85rem;
+}
+.stmtReminderKind {
+  font-size: 0.65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface3);
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stmtReminderDate {
+  font-size: 0.72rem;
+  color: #fbbf24;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.stmtReminderDateExpired {
+  font-size: 0.72rem;
+  color: var(--text3);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+.stmtReminderText {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.parseNoteReminder {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fcd34d;
 }
 
 .txFilterBar {

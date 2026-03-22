@@ -41,6 +41,39 @@ class ParsedStatement:
     minimum_due_try: float | None = None
     transactions: list[ParsedTransaction] = field(default_factory=list)
     parse_notes: list[str] = field(default_factory=list)
+    # Notices from PDF (Pazarama/MaxiMil expiry, legal warnings, etc.)
+    statement_reminders: list[dict[str, Any]] = field(default_factory=list)
+
+
+def parsed_statement_to_storage_dict(ps: ParsedStatement) -> dict[str, Any]:
+    """JSON-serializable dict for `statement_documents.parsed_json`."""
+    return {
+        "bank_name": ps.bank_name,
+        "card_number": ps.card_number,
+        "period_start": str(ps.statement_period_start) if ps.statement_period_start else None,
+        "period_end": str(ps.statement_period_end) if ps.statement_period_end else None,
+        "due_date": str(ps.due_date) if ps.due_date else None,
+        "total_due_try": ps.total_due_try,
+        "minimum_due_try": ps.minimum_due_try,
+        "transactions": [
+            {
+                "date": str(tx.date) if tx.date else None,
+                "description": tx.description,
+                "amount": tx.amount,
+                "currency": tx.currency,
+            }
+            for tx in ps.transactions
+        ],
+        "parse_notes": ps.parse_notes,
+        "statement_reminders": ps.statement_reminders or [],
+    }
+
+
+def _attach_statement_reminders(ps: ParsedStatement, text: str) -> None:
+    """Fill statement_reminders from raw PDF text (not from LLM JSON)."""
+    from app.ingestion.statement_reminders import extract_statement_reminders
+
+    ps.statement_reminders = extract_statement_reminders(text)
 
 
 def is_llm_failure_empty(ps: ParsedStatement) -> bool:
@@ -68,6 +101,8 @@ _BANK_KEYWORDS: list[tuple[str, str]] = [
     ("isbank", "İş Bankası"),
     ("işbank", "İş Bankası"),
     ("türkiye iş", "İş Bankası"),
+    ("maximiles", "İş Bankası"),
+    ("maxipuan", "İş Bankası"),
     ("qnb", "QNB Finansbank"),
     ("finansbank", "QNB Finansbank"),
     ("teb", "TEB"),
@@ -92,6 +127,50 @@ def _detect_bank_from_text(text: str) -> str | None:
         if keyword in lower:
             return name
     return None
+
+
+# LLM often labels the *merchant* "Param" (POS/wallet) as bank_name on real bank statements.
+_FINTECH_FALSE_BANKS = frozenset({"param", "papara"})
+
+
+def is_false_fintech_bank_name(name: str | None) -> bool:
+    """True if *name* normalizes to Param/Papara — not a real card-issuer hint."""
+    n = canonical_bank_name(normalize_bank_name(name))
+    return bool(n and n.lower() in _FINTECH_FALSE_BANKS)
+
+
+def resolve_bank_hint(bank_name: str | None, text: str) -> str | None:
+    """Normalize email/JSON bank hint; ignore Param/Papara; fall back to PDF keyword detection."""
+    n = canonical_bank_name(normalize_bank_name(bank_name))
+    if n and n.lower() in _FINTECH_FALSE_BANKS:
+        log.info("bank_hint_fintech_trap_cleared bank_in=%s", bank_name)
+        n = None
+    if not n:
+        n = canonical_bank_name(_detect_bank_from_text(text))
+    return n
+
+
+def _reconcile_llm_bank_name(
+    llm_bank: str | None,
+    text: str,
+    hint_bank: str | None,
+) -> str | None:
+    """If LLM says Param/Papara but email/PDF clearly names a real bank, prefer that bank."""
+    n = canonical_bank_name(normalize_bank_name(llm_bank))
+    if not n:
+        return None
+    low = n.lower()
+    if low not in _FINTECH_FALSE_BANKS:
+        return n
+    hint = canonical_bank_name(normalize_bank_name(hint_bank))
+    if hint and hint.lower() not in _FINTECH_FALSE_BANKS:
+        log.info("bank_reconcile_fintech_trap prefer_hint llm=%s -> %s", n, hint)
+        return hint
+    detected = canonical_bank_name(_detect_bank_from_text(text))
+    if detected and detected.lower() not in _FINTECH_FALSE_BANKS:
+        log.info("bank_reconcile_fintech_trap prefer_text llm=%s -> %s", n, detected)
+        return detected
+    return n
 
 
 # ── LLM result → ParsedStatement conversion ───────────────────────────────────
@@ -189,11 +268,8 @@ def parse_statement(
     """
     text_fp = _text_fingerprint(text)
     bank_in = bank_name
-    # Normalize hints: LLM often emits the string "null" in JSON — treat as missing
-    bank_name = canonical_bank_name(normalize_bank_name(bank_name))
-    # Auto-detect bank from PDF text if not identified from email
-    if not bank_name:
-        bank_name = canonical_bank_name(_detect_bank_from_text(text))
+    # Param/Papara in DB/email JSON is not a real issuer — detect from PDF text instead
+    bank_name = resolve_bank_hint(bank_name, text)
 
     if bank_name:
         log.info("bank_identified bank=%s", bank_name)
@@ -229,6 +305,7 @@ def parse_statement(
                 local.parse_notes,
                 text_fp,
             )
+            _attach_statement_reminders(local, text)
             return local
         log.info(
             "learned_local_not_applied bank=%s falling_back_to_llm text_fp=%s",
@@ -255,6 +332,14 @@ def parse_statement(
         )
         if llm_data is not None:
             result = _llm_result_to_parsed_statement(llm_data)
+            prev_bank = result.bank_name
+            result.bank_name = _reconcile_llm_bank_name(result.bank_name, text, bank_name)
+            if (
+                prev_bank
+                and result.bank_name != prev_bank
+                and (prev_bank.lower() in _FINTECH_FALSE_BANKS)
+            ):
+                result.parse_notes.append("bank_reconciled_fintech_trap")
             # Fill bank_name from detected value if LLM didn't provide it
             if not result.bank_name and bank_name:
                 result.bank_name = bank_name
@@ -275,6 +360,7 @@ def parse_statement(
                 result.parse_notes,
                 text_fp,
             )
+            _attach_statement_reminders(result, text)
             return result
 
         # LLM was configured but call failed (timeout, HTTP, invalid JSON, …)
@@ -297,6 +383,7 @@ def parse_statement(
             fallback.parse_notes,
             text_fp,
         )
+        _attach_statement_reminders(fallback, text)
         return fallback
 
     # ── No LLM URL (disabled / not configured) ───────────────────────────────
@@ -315,4 +402,5 @@ def parse_statement(
         fallback.parse_notes,
         text_fp,
     )
+    _attach_statement_reminders(fallback, text)
     return fallback
