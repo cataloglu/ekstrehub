@@ -1446,6 +1446,18 @@ export function App() {
                           </label>
                           <div className="stmtCardActions">
                             {stmt.doc_type === "pdf" && (
+                              <a
+                                className="stmtPdfLink"
+                                href={apiUrlPath(`api/statements/${stmt.id}/pdf`)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Posta kutusundan orijinal PDF (doğrulama için)"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Orijinal PDF
+                              </a>
+                            )}
+                            {stmt.doc_type === "pdf" && (
                               <button
                                 type="button"
                                 className="stmtReparseBtn"

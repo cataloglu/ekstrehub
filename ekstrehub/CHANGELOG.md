@@ -1,5 +1,18 @@
 # EkstreHub Changelog
 
+## 1.0.46 (2026-03-22)
+
+### Özellikler
+- **Orijinal PDF**: Ekstre satırında **Orijinal PDF** linki — posta kutusundan PDF açılır (doğrulama için). PDF sunucuda saklanmaz; açılışta IMAP’ten çekilir.
+
+### Düzeltmeler
+- **Param bankası yanlışlı**: PDF metninde `parametre` gibi kelimeler içindeki `param` geçişi “Param” bankası sanılıyordu; artık sadece kelime olarak `param` eşleşir.
+
+### İyileştirmeler
+- AI: `bank_name` alanına ödeme/ cüzdan markası değil, ekstreyi düzenleyen banka yazılması hatırlatması.
+
+---
+
 ## 1.0.45 (2026-03-22)
 
 ### Özellikler

@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.46] – 2026-03-22
+
+### Features
+- **Original PDF**: `GET /api/statements/{id}/pdf` — streams PDF from IMAP (same as reparse). UI: Ekstreler → **Orijinal PDF** (new tab).
+
+### Fixes
+- **Param false positive**: `param` substring matched inside words like *parametre*; bank detection now requires whole word `\bparam\b`.
+
+### Improvements
+- LLM prompt: `bank_name` must be the card-issuing bank, not payment-wallet names (Param, Paycell, …).
+
+---
+
 ## [1.0.45] – 2026-03-22
 
 ### Features

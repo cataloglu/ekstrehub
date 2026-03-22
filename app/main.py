@@ -3,14 +3,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, Header, HTTPException
 from fastapi import Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 import html
 import json
 import logging
 import pathlib
 import re
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from time import perf_counter
 from typing import Literal
 import uvicorn
@@ -625,6 +625,47 @@ async def list_statements(request: Request, limit: int = 50):
             return {"items": items}
     except (OperationalError, SQLAlchemyError) as exc:
         _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.get("/api/statements/{doc_id}/pdf")
+async def get_statement_original_pdf(doc_id: int, request: Request):
+    """Return the original PDF from IMAP (not stored on disk). Inline display in browser."""
+    from app.ingestion.reparse_from_imap import fetch_pdf_bytes_for_statement
+
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            pdf, err, fname = fetch_pdf_bytes_for_statement(session, doc_id)
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+    if err:
+        err_map: dict[str, tuple[int, str]] = {
+            "not_found_or_not_pdf": (404, "Ekstre PDF kaydı bulunamadı."),
+            "email_or_account_missing": (502, "İlişkili mail kaydı veya hesap yok."),
+            "mail_account_missing": (502, "Mail hesabı bulunamadı veya pasif."),
+            "no_message_id": (502, "Message-ID eksik."),
+            "pdf_not_found_in_imap": (
+                404,
+                "PDF posta kutusunda bulunamadı (silinmiş, taşınmış veya etiket dışı olabilir).",
+            ),
+        }
+        status, msg = err_map.get(err, (502, err))
+        raise HTTPException(status_code=status, detail={"code": err, "message": msg})
+
+    safe_ascii = "".join(
+        c if 32 <= ord(c) < 127 and c not in '\\"' else "_"
+        for c in (fname or "ekstre.pdf")
+    )
+    disp = f'inline; filename="{safe_ascii}"; filename*=UTF-8\'\'{quote(fname or "ekstre.pdf")}'
+    log_event(
+        request_logger,
+        "statement_pdf_served",
+        category="parser",
+        doc_id=doc_id,
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": disp})
 
 
 @app.post("/api/statements/reparse")

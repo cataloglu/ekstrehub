@@ -48,6 +48,7 @@ Metni dikkatle okuyup aşağıdaki JSON formatında SADECE JSON döndür, başka
 }
 
 Kurallar:
+- bank_name: Sadece ekstreyi düzenleyen banka (kartı veren kurum). Ödeme altyapısı / cüzdan adı (Param, Paycell, iyzico vb.) veya işyeri adı banka adı olarak yazma; emin değilsen PDF başlığındaki bankayı kullan.
 - TÜM işlemleri listele, hiçbirini atlama (ödemeler dahil)
 - Ödemeler, iadeler, iptal ve düzeltmeler için amount negatif olmalı (örn: -1000.0)
 - Alışveriş ve harcamalar için amount pozitif olmalı

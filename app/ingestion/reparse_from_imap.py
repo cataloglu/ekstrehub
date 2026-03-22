@@ -117,6 +117,40 @@ def fetch_pdf_for_document(
     return None
 
 
+def fetch_pdf_bytes_for_statement(
+    session: Session,
+    doc_id: int,
+) -> tuple[bytes | None, str, str | None]:
+    """Load PDF bytes from IMAP for a stored statement (same source as reparse).
+
+    Returns (pdf_bytes, error_code, file_name). error_code is empty string on success.
+    """
+    doc = session.get(StatementDocument, doc_id)
+    if not doc or doc.doc_type != "pdf":
+        return None, "not_found_or_not_pdf", None
+    email_row = session.get(EmailIngested, doc.email_ingested_id)
+    if not email_row or not email_row.mail_account_id:
+        return None, "email_or_account_missing", None
+    acct = session.get(MailAccount, email_row.mail_account_id)
+    if not acct or not acct.is_active:
+        return None, "mail_account_missing", None
+    if not (email_row.message_id or "").strip():
+        return None, "no_message_id", None
+
+    mail = _imap_login(acct)
+    try:
+        pdf = fetch_pdf_for_document(mail, acct, email_row.message_id, doc.file_name)
+    finally:
+        try:
+            mail.logout()
+        except Exception:
+            pass
+    if not pdf:
+        return None, "pdf_not_found_in_imap", None
+    fname = doc.file_name or f"ekstre-{doc_id}.pdf"
+    return pdf, "", fname
+
+
 def _result_to_json(result: Any) -> str:
     return json.dumps(
         {

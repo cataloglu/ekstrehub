@@ -84,6 +84,11 @@ def _detect_bank_from_text(text: str) -> str | None:
     """Detect bank name from PDF text for context/logging. Returns None if unknown."""
     lower = text.lower()
     for keyword, name in _BANK_KEYWORDS:
+        # "param" is a substring of "parametre", "parametrik", etc. — require whole word.
+        if keyword == "param":
+            if re.search(r"\bparam\b", lower) is None:
+                continue
+            return name
         if keyword in lower:
             return name
     return None
