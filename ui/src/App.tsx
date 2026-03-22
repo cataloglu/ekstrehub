@@ -25,6 +25,8 @@ import {
   deleteStatementsBulk,
   resetIngestionData,
   RESET_INGESTION_CONFIRM_PHRASE,
+  clearEmailIngestionCache,
+  CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE,
   clearLearnedParserRules,
   CLEAR_LEARNED_RULES_CONFIRM_PHRASE,
   type AutoSyncSettings,
@@ -162,6 +164,9 @@ export function App() {
   const [clearLearnedOpen, setClearLearnedOpen] = useState(false);
   const [clearLearnedInput, setClearLearnedInput] = useState("");
   const [isClearingLearned, setIsClearingLearned] = useState(false);
+  const [clearEmailOpen, setClearEmailOpen] = useState(false);
+  const [clearEmailInput, setClearEmailInput] = useState("");
+  const [isClearingEmail, setIsClearingEmail] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
   const [feeMode, setFeeMode] = useState(false);
   const [activityLog, setActivityLog] = useState<ActivityLogResponse | null>(null);
@@ -382,6 +387,30 @@ export function App() {
       setErrorMessage(e instanceof Error ? e.message : String(e));
     } finally {
       setIsClearingLearned(false);
+    }
+  }
+
+  async function executeClearEmailIngestionCache() {
+    if (clearEmailInput !== CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE) return;
+    setIsClearingEmail(true);
+    setErrorMessage("");
+    try {
+      const r = await clearEmailIngestionCache(clearEmailInput);
+      const d = r.deleted;
+      setClearEmailOpen(false);
+      setClearEmailInput("");
+      setSelectedStmtIds(new Set());
+      setExpandedStatementId(null);
+      setSyncInfo(
+        `Posta işleme önbelleği temizlendi. Silinen: ekstre ${d.statement_documents ?? 0}, mail kaydı ${d.emails_ingested ?? 0}, sync çalışması ${d.mail_ingestion_runs ?? 0}. `
+        + "Şimdi «Mail ile senkronize et» ile aynı kutudaki mailler yeniden indirilebilir. (Öğrenilmiş kurallar korunur.)",
+      );
+      pushLog("info", "mail", "email ingestion cache cleared");
+      await reloadCoreData();
+    } catch (e) {
+      setErrorMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsClearingEmail(false);
     }
   }
 
@@ -3066,6 +3095,31 @@ export function App() {
                   </div>
 
                   <div className="testZone" style={{ marginTop: 22 }}>
+                    <h3 className="testZoneTitle">Aynı mailleri yeniden indirmek</h3>
+                    <p className="muted" style={{ marginBottom: 12 }}>
+                      Sadece <strong>ekstreleri silmek</strong> yetmez: veritabanında{" "}
+                      <strong>işlenmiş mail kaydı</strong> (<code className="inlineCode">Message-ID</code>) kalır.
+                      Sync aynı mesajları <strong>tekrar</strong> sayar, PDF tekrar eklenmez. Kutudaki ekstreleri
+                      baştan çekmek için aşağıdaki önbelleği temizleyin; ardından{" "}
+                      <strong>Mail ile senkronize et</strong> çalıştırın.
+                    </p>
+                    <p className="muted" style={{ marginBottom: 14 }}>
+                      <strong>Korunur:</strong> öğrenilmiş parser kuralları, denetim logları, mail hesapları, AI ayarları.
+                      Tam veri silmek için yukarıdaki <strong>SIFIRLA</strong> kullanın.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn testZoneBtn"
+                      onClick={() => {
+                        setClearEmailInput("");
+                        setClearEmailOpen(true);
+                      }}
+                    >
+                      Posta önbelleğini temizle (onaylı)…
+                    </button>
+                  </div>
+
+                  <div className="testZone" style={{ marginTop: 22 }}>
                     <h3 className="testZoneTitle">Test: öğrenilmiş kuralları sil</h3>
                     <p className="muted" style={{ marginBottom: 12 }}>
                       Veritabanındaki <strong>tüm banka regex kuralları</strong> silinir; ekstre ve mail kayıtları{" "}
@@ -3140,6 +3194,61 @@ export function App() {
                 onClick={() => void executeSystemReset()}
               >
                 {isResettingSystem ? "Sıfırlanıyor…" : "Evet, sıfırla"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Clear email ingestion cache (type POSTA) ── */}
+      {clearEmailOpen && (
+        <div
+          className="modalOverlay"
+          onClick={() => !isClearingEmail && setClearEmailOpen(false)}
+        >
+          <div className="confirmDialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confirmDialogIcon">📧</div>
+            <div className="confirmDialogTitle">Posta işleme önbelleğini sil?</div>
+            <div className="confirmDialogBody" style={{ textAlign: "left" }}>
+              Tüm <strong>ekstre kayıtları</strong>, <strong>işlenmiş mail kayıtları</strong> ve{" "}
+              <strong>sync geçmişi</strong> silinir; aynı IMAP mesajları bir sonraki sync’te yeniden işlenir.
+              Onay için tam olarak{" "}
+              <code className="inlineCode">{CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE}</code> yaz.
+              <label className="systemResetLabel" htmlFor="clear-email-confirm">
+                Onay metni
+              </label>
+              <input
+                id="clear-email-confirm"
+                className="systemResetInput"
+                type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder={CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE}
+                value={clearEmailInput}
+                onChange={(e) => setClearEmailInput(e.target.value)}
+                disabled={isClearingEmail}
+              />
+            </div>
+            <div className="confirmDialogActions">
+              <button
+                type="button"
+                className="confirmBtnCancel"
+                disabled={isClearingEmail}
+                onClick={() => setClearEmailOpen(false)}
+              >
+                İptal
+              </button>
+              <button
+                type="button"
+                className="confirmBtnDelete"
+                disabled={
+                  isClearingEmail
+                  || clearEmailInput !== CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE
+                }
+                onClick={() => void executeClearEmailIngestionCache()}
+              >
+                {isClearingEmail ? "Temizleniyor…" : "Evet, önbelleği temizle"}
               </button>
             </div>
           </div>

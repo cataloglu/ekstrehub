@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.45 (2026-03-22)
+
+### Özellikler
+- **Aynı mailleri tekrar indir**: Ekstreleri sildiyseniz bile sistem aynı maili «zaten işlendi» sayabilir (`duplicate_messages`). **Ayarlar → Sistem → «Posta önbelleğini temizle»** — onay `POSTA`. Sonra **Mail ile senkronize et**. Öğrenilmiş kurallar ve denetim logları silinmez (tam silme için `SIFIRLA`).
+
+---
+
 ## 1.0.44 (2026-03-22)
 
 ### Düzeltmeler

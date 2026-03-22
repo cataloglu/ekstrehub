@@ -593,6 +593,9 @@ export const RESET_INGESTION_CONFIRM_PHRASE = "SIFIRLA";
 /** Must match server `app.system_reset.CLEAR_LEARNED_RULES_CONFIRM_PHRASE` */
 export const CLEAR_LEARNED_RULES_CONFIRM_PHRASE = "KURALLAR";
 
+/** Must match server `app.system_reset.CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE` */
+export const CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE = "POSTA";
+
 export async function resetIngestionData(
   confirm: string,
   options?: RequestOptions
@@ -621,6 +624,21 @@ export async function clearLearnedParserRules(
     throw new Error(await readErrorMessage(response, `Kurallar silinemedi: ${response.status}`));
   }
   return (await response.json()) as { ok: boolean; deleted_learned_parser_rules: number };
+}
+
+export async function clearEmailIngestionCache(
+  confirm: string,
+  options?: RequestOptions
+): Promise<{ ok: boolean; deleted: Record<string, number> }> {
+  const response = await fetch("api/system/clear-email-ingestion-cache", {
+    method: "POST",
+    headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
+    body: JSON.stringify({ confirm }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Posta önbelleği temizlenemedi: ${response.status}`));
+  }
+  return (await response.json()) as { ok: boolean; deleted: Record<string, number> };
 }
 
 export async function deleteStatementsBulk(

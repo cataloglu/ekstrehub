@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.45] – 2026-03-22
+
+### Features
+- **Posta önbelleği (`POSTA`)**: `POST /api/system/clear-email-ingestion-cache` — deletes `statement_documents`, `emails_ingested`, `mail_ingestion_runs` so the same IMAP messages can be ingested again. Learned rules + audit log preserved (unlike `SIFIRLA`). Settings → System → “Posta önbelleğini temizle”.
+
+### Why
+- Deleting statements only leaves `emails_ingested.message_id` rows; sync skips every message as duplicate.
+
+---
+
 ## [1.0.44] – 2026-03-22
 
 ### Fixes

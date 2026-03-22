@@ -23,6 +23,10 @@ RESET_CONFIRM_PHRASE = "SIFIRLA"
 # Test: drop only learned regex rows (ekstreler kalır; sonraki parse LLM’e gider).
 CLEAR_LEARNED_RULES_CONFIRM_PHRASE = "KURALLAR"
 
+# Clear IMAP message-id cache so the same mailbox messages can be ingested again
+# (deleting only statement_documents is not enough — emails_ingested still blocks).
+CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE = "POSTA"
+
 
 def reset_ingestion_data(session) -> dict[str, Any]:
     """Delete statements, mail ingestion history, learned rules, audit logs. Returns counts deleted."""
@@ -46,6 +50,24 @@ def reset_ingestion_data(session) -> dict[str, Any]:
         "system_reset_ingestion_done deleted=%s",
         counts,
     )
+    return {"ok": True, "deleted": counts}
+
+
+def clear_email_ingestion_cache(session) -> dict[str, Any]:
+    """Delete statements + emails_ingested + mail runs so sync can re-fetch same mails.
+
+    Does **not** delete learned_parser_rules or audit_logs (unlike full reset).
+    """
+    counts: dict[str, int] = {
+        "statement_documents": session.scalar(select(func.count()).select_from(StatementDocument)) or 0,
+        "emails_ingested": session.scalar(select(func.count()).select_from(EmailIngested)) or 0,
+        "mail_ingestion_runs": session.scalar(select(func.count()).select_from(MailIngestionRun)) or 0,
+    }
+    session.execute(delete(StatementDocument))
+    session.execute(delete(EmailIngested))
+    session.execute(delete(MailIngestionRun))
+    session.commit()
+    log.info("email_ingestion_cache_cleared deleted=%s", counts)
     return {"ok": True, "deleted": counts}
 
 

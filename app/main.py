@@ -30,8 +30,10 @@ from app.auto_sync import get_auto_sync_status, update_settings as update_auto_s
 import app.app_settings as app_settings
 from app.logging_utils import configure_logging, log_event
 from app.system_reset import (
+    CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE,
     CLEAR_LEARNED_RULES_CONFIRM_PHRASE,
     RESET_CONFIRM_PHRASE,
+    clear_email_ingestion_cache,
     clear_learned_parser_rules,
     reset_ingestion_data,
 )
@@ -806,6 +808,38 @@ async def system_clear_learned_rules(request: Request):
             category="system",
             request_id=getattr(request.state, "request_id", None),
             deleted=result.get("deleted_learned_parser_rules"),
+        )
+        return result
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
+
+
+@app.post("/api/system/clear-email-ingestion-cache")
+async def system_clear_email_ingestion_cache(request: Request):
+    """Remove processed mail + ekstre rows so the next sync can re-import the same IMAP messages.
+
+    Body: { \"confirm\": \"POSTA\" }. Does not delete learned rules or audit log (unlike SIFIRLA).
+    """
+    body = await request.json()
+    confirm = (body.get("confirm") or "").strip()
+    if confirm != CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "confirm_required",
+                "message": f'Onay için tam olarak "{CLEAR_EMAIL_INGESTION_CONFIRM_PHRASE}" yazın.',
+            },
+        )
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            result = clear_email_ingestion_cache(session)
+        log_event(
+            request_logger,
+            "email_ingestion_cache_cleared",
+            category="system",
+            request_id=getattr(request.state, "request_id", None),
+            deleted=result.get("deleted"),
         )
         return result
     except (OperationalError, SQLAlchemyError) as exc:
