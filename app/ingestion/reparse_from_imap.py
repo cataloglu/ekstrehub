@@ -17,7 +17,9 @@ from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_lear
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import runtime_from_mail_account
 from app.ingestion.bank_identification import canonical_bank_name, normalize_bank_name
+from app.ingestion.ingestion_lock import ingestion_write_lock
 from app.ingestion.statement_parser import (
+    _bank_detection_context,
     is_false_fintech_bank_name,
     is_llm_failure_empty,
     parse_statement,
@@ -203,8 +205,9 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
             pass
     bank_hint = _coalesce_reparse_bank_hint(pj_bank, email_row.bank_name)
 
-    # Learned rules key must not use stale "Param" — same resolution as parse_statement
-    bank_for_rules = resolve_bank_hint(bank_hint, text)
+    # Learned rules key must not use stale "Param" — same resolution as parse_statement (email+PDF)
+    bank_ctx = _bank_detection_context(text, email_row.subject, email_row.sender)
+    bank_for_rules = resolve_bank_hint(bank_hint, bank_ctx)
     learned = load_learned_rule_dict(session, bank_for_rules)
 
     llm = app_settings_module.get_llm_config()
@@ -219,6 +222,8 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
         llm_timeout_seconds=int(llm.get("llm_timeout_seconds", 120)),
         llm_min_tx_threshold=int(llm.get("llm_min_tx_threshold", 0)),
         learned_rules=learned,
+        email_subject=email_row.subject,
+        email_sender=email_row.sender,
     )
     if (
         result
@@ -315,8 +320,6 @@ def collect_doc_ids_for_scope(session: Session, scope: str, doc_ids: list[int]) 
 
 def run_batch_reparse(scope: str, doc_ids: list[int], max_docs: int = 40) -> dict[str, Any]:
     """Run re-parse in a blocking batch (call from thread pool)."""
-    from app.db.session import get_session_factory
-
     cfg = app_settings_module.get_llm_config()
     if not cfg.get("llm_enabled") or not (cfg.get("llm_api_url") or "").strip():
         return {
@@ -324,6 +327,13 @@ def run_batch_reparse(scope: str, doc_ids: list[int], max_docs: int = 40) -> dic
             "error": "llm_not_configured",
             "message": "AI parser açık ve LLM API URL dolu olmalı (Ayarlar → AI Parser).",
         }
+
+    with ingestion_write_lock:
+        return _run_batch_reparse_locked(scope, doc_ids, max_docs)
+
+
+def _run_batch_reparse_locked(scope: str, doc_ids: list[int], max_docs: int = 40) -> dict[str, Any]:
+    from app.db.session import get_session_factory
 
     session_factory = get_session_factory()
     with session_factory() as session:

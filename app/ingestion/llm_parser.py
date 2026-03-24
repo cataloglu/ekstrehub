@@ -48,7 +48,7 @@ Metni dikkatle okuyup aşağıdaki JSON formatında SADECE JSON döndür, başka
 }
 
 Kurallar:
-- bank_name: Sadece ekstreyi düzenleyen banka (kartı veren kurum). **Asla** «Param» veya «Papara» yazma — bunlar POS/ödeme markasıdır, banka değildir (İş Bankası ekstresinde bile işlem satırında «Param» geçebilir). PDF üst bilgisindeki bankayı kullan (örn. İş Bankası, Garanti BBVA).
+- bank_name: Sadece ekstreyi düzenleyen banka (kartı veren kurum). **Asla** «Param» veya «Papara» yazma — bunlar POS/ödeme markasıdır, banka değildir (İş Bankası ekstresinde bile işlem satırında «Param» geçebilir). Üst bilgi bazen **yalnızca logo (görsel)** olduğundan metinde banka adı çıkmayabilir; o zaman ürün adından çıkar: **Maximiles / Maximum / MaxiPuan** → İş Bankası, **World** (kart) → Yapı Kredi, **Bonus** → Garanti BBVA vb. PDF metninde geçen resmi banka adını tercih et.
 - TÜM işlemleri listele, hiçbirini atlama (ödemeler dahil)
 - Ödemeler, iadeler, iptal ve düzeltmeler için amount negatif olmalı (örn: -1000.0)
 - Alışveriş ve harcamalar için amount pozitif olmalı

@@ -18,6 +18,8 @@ import {
   patchLlmSettings,
   testLlmConnection,
   reparseStatements,
+  KNOWN_BANK_OPTIONS,
+  patchStatementBank,
   patchMailAccount,
   rejectParserChange,
   setAutoSync,
@@ -118,6 +120,13 @@ function countActiveReminders(reminders: StatementReminder[] | undefined): numbe
   return reminders.filter((r) => !r.expires_on || !reminderDeadlinePassed(r.expires_on)).length;
 }
 
+/** Ekstre satırı banka açılır listesi: bilinen bankalar + mevcut (ör. yanlış tespit Param) */
+function statementBankSelectOptions(current: string | null | undefined): string[] {
+  const names = new Set<string>(KNOWN_BANK_OPTIONS);
+  if (current) names.add(current);
+  return Array.from(names).sort((a, b) => a.localeCompare(b, "tr"));
+}
+
 const REMINDER_KIND_LABEL: Record<string, string> = {
   expiry: "Son kullanma",
   legal_warning: "Uyarı",
@@ -187,6 +196,7 @@ export function App() {
   const [isTestingLlm, setIsTestingLlm] = useState(false);
   const [isReparsingStatements, setIsReparsingStatements] = useState(false);
   const [reparseStmtId, setReparseStmtId] = useState<number | null>(null);
+  const [bankPatchingId, setBankPatchingId] = useState<number | null>(null);
   const [reparseSummary, setReparseSummary] = useState<string | null>(null);
   const [systemResetOpen, setSystemResetOpen] = useState(false);
   const [systemResetInput, setSystemResetInput] = useState("");
@@ -1649,6 +1659,46 @@ export function App() {
                             />
                             <span className="stmtCheckboxText">Seç</span>
                           </label>
+                          <div className="stmtBankSelectWrap" onClick={(e) => e.stopPropagation()}>
+                            <label className="stmtBankSelectLabel" htmlFor={`stmt-bank-${stmt.id}`}>
+                              Banka
+                            </label>
+                            <select
+                              id={`stmt-bank-${stmt.id}`}
+                              className="stmtBankSelect"
+                              value={stmt.bank_name ?? ""}
+                              disabled={bankPatchingId === stmt.id}
+                              title="Otomatik tespit yanlışsa (ör. PDF’te logo, metinde Param) düzelt"
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v || v === stmt.bank_name) return;
+                                void (async () => {
+                                  setBankPatchingId(stmt.id);
+                                  try {
+                                    await patchStatementBank(stmt.id, v);
+                                    await reloadCoreData();
+                                  } catch (err) {
+                                    pushLog(
+                                      "error",
+                                      "parser",
+                                      err instanceof Error ? err.message : String(err)
+                                    );
+                                  } finally {
+                                    setBankPatchingId(null);
+                                  }
+                                })();
+                              }}
+                            >
+                              {!stmt.bank_name && (
+                                <option value="">— Seçin —</option>
+                              )}
+                              {statementBankSelectOptions(stmt.bank_name).map((b) => (
+                                <option key={b} value={b}>
+                                  {b}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                           <div className="stmtCardActions">
                             {stmt.doc_type === "pdf" && (
                               <a

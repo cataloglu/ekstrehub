@@ -1,5 +1,16 @@
 # EkstreHub Changelog
 
+## 1.0.52 (2026-03-24)
+
+### Düzeltmeler
+- **SQLite `database is locked`**: WAL, uzun busy timeout, uygun bağlantı ayarları; mail sync ile toplu yeniden çöz aynı anda DB’ye yazmasın diye **tek sıra kilidi** (sync + batch re-parse birbirini bekler).
+- **İş Bankası / Maximiles**: PDF’te logo görsel olduğunda metin ipuçları (`maximiles.com`, `MAXIMIL`, `0850 724` vb.) banka tespitinde öncelikli; `PARAM/GETIR` satırı tek başına Param sayılmaz.
+
+### Özellikler
+- **Ekstreler**: Satırda **Banka** açılır listesi — otomatik tespit yanlışsa manuel düzeltme (API `PATCH` ile aynı).
+
+---
+
 ## 1.0.51 (2026-02-21)
 
 ### Düzeltmeler

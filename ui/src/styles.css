@@ -2116,7 +2116,8 @@ body {
 .stmtSelectRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
   padding: 4px 14px 0;
   opacity: 0;
   transition: opacity 0.15s;
@@ -2142,10 +2143,41 @@ body {
   font-size: 0.72rem;
   color: var(--text3);
 }
+.stmtBankSelectWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  max-width: min(240px, 100%);
+}
+.stmtBankSelectLabel {
+  font-size: 0.68rem;
+  color: var(--text3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.stmtBankSelect {
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.stmtBankSelect:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
 .stmtCardActions {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-left: auto;
 }
 .stmtPdfLink {
   display: inline-block;

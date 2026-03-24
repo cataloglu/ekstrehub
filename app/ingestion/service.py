@@ -18,6 +18,7 @@ from app.ingestion.gmail_oauth import GmailOAuthError, refresh_access_token
 from app.ingestion.mail_client import IMAPMailClient
 from app.ingestion.pdf_extractor import extract_text_from_pdf
 from app.ingestion.runtime_config import ImapRuntimeConfig, runtime_from_env, runtime_from_mail_account
+from app.ingestion.ingestion_lock import ingestion_write_lock
 from app.ingestion.learned_rules import load_learned_rule_dict, maybe_train_learned_rules
 from app.ingestion.statement_parser import (
     _detect_bank_from_text,
@@ -85,6 +86,10 @@ class MailIngestionService:
     def run_sync(self, idempotency_key: str | None = None) -> tuple[dict[str, int], bool]:
         summary = IngestionSummary()
 
+        with ingestion_write_lock:
+            return self._run_sync_locked(idempotency_key, summary)
+
+    def _run_sync_locked(self, idempotency_key: str | None, summary: IngestionSummary) -> tuple[dict[str, int], bool]:
         session_factory = get_session_factory()
         with session_factory() as session:
             if idempotency_key:
@@ -192,6 +197,8 @@ class MailIngestionService:
                                     llm_timeout_seconds=_llm["llm_timeout_seconds"],
                                     llm_min_tx_threshold=_llm.get("llm_min_tx_threshold", 0),
                                     learned_rules=_learned,
+                                    email_subject=message.subject,
+                                    email_sender=message.sender,
                                 )
                                 if (
                                     result

@@ -19,6 +19,7 @@ from app.ingestion.bank_identification import (
     normalize_bank_name,
     normalize_optional_llm_str,
 )
+from app.ingestion.bank_profiles import BANK_PROFILES
 
 log = logging.getLogger(__name__)
 
@@ -88,46 +89,32 @@ def is_llm_failure_empty(ps: ParsedStatement) -> bool:
 
 # ── Bank detection (for logging/context only, no parsing rules) ───────────────
 
-_BANK_KEYWORDS: list[tuple[str, str]] = [
-    ("denizbank", "DenizBank"),
-    ("garanti", "Garanti BBVA"),
-    ("yapı kredi", "Yapı Kredi"),
-    ("yapikredi", "Yapı Kredi"),
-    ("ykb", "Yapı Kredi"),
-    ("akbank", "Akbank"),
-    ("ziraat", "Ziraat Bankası"),
-    ("vakıfbank", "VakıfBank"),
-    ("vakifbank", "VakıfBank"),
-    ("halkbank", "Halkbank"),
-    ("iş bankası", "İş Bankası"),
-    ("isbank", "İş Bankası"),
-    ("işbank", "İş Bankası"),
-    ("türkiye iş", "İş Bankası"),
-    ("maximiles", "İş Bankası"),
-    ("maxipuan", "İş Bankası"),
-    ("qnb", "QNB Finansbank"),
-    ("finansbank", "QNB Finansbank"),
-    ("teb", "TEB"),
-    ("hsbc", "HSBC"),
-    ("enpara", "QNB Finansbank"),
-    ("ing bank", "ING Bank"),
-    ("ingbank", "ING Bank"),
-    ("param", "Param"),
-    ("papara", "Papara"),
-]
+
+def _bank_detection_context(pdf_text: str, subject: str | None, sender: str | None) -> str:
+    """Combine mail subject/sender with PDF text so we detect bank even when the logo is image-only."""
+    parts: list[str] = []
+    if subject:
+        parts.append(f"EMAIL_SUBJECT: {subject}")
+    if sender:
+        parts.append(f"EMAIL_FROM: {sender}")
+    parts.append(pdf_text or "")
+    return "\n".join(parts)
 
 
 def _detect_bank_from_text(text: str) -> str | None:
-    """Detect bank name from PDF text for context/logging. Returns None if unknown."""
+    """Detect issuer from text (PDF + optional email prefix). Real banks first; Param/Papara last."""
+    if not (text or "").strip():
+        return None
     lower = text.lower()
-    for keyword, name in _BANK_KEYWORDS:
-        # "param" is a substring of "parametre", "parametrik", etc. — require whole word.
-        if keyword == "param":
-            if re.search(r"\bparam\b", lower) is None:
-                continue
-            return name
-        if keyword in lower:
-            return name
+    # Profile markers (İş: maximiles, isbank, …) before any POS «param» token in the body
+    for profile in BANK_PROFILES:
+        for marker in profile.markers:
+            if marker.lower() in lower:
+                return profile.bank_name
+    if re.search(r"\bparam\b", lower):
+        return "Param"
+    if "papara" in lower:
+        return "Papara"
     return None
 
 
@@ -141,20 +128,20 @@ def is_false_fintech_bank_name(name: str | None) -> bool:
     return bool(n and n.lower() in _FINTECH_FALSE_BANKS)
 
 
-def resolve_bank_hint(bank_name: str | None, text: str) -> str | None:
-    """Normalize email/JSON bank hint; ignore Param/Papara; fall back to PDF keyword detection."""
+def resolve_bank_hint(bank_name: str | None, bank_detection_text: str) -> str | None:
+    """Normalize email/JSON bank hint; ignore Param/Papara; fall back to PDF+email keyword detection."""
     n = canonical_bank_name(normalize_bank_name(bank_name))
     if n and n.lower() in _FINTECH_FALSE_BANKS:
         log.info("bank_hint_fintech_trap_cleared bank_in=%s", bank_name)
         n = None
     if not n:
-        n = canonical_bank_name(_detect_bank_from_text(text))
+        n = canonical_bank_name(_detect_bank_from_text(bank_detection_text))
     return n
 
 
 def _reconcile_llm_bank_name(
     llm_bank: str | None,
-    text: str,
+    bank_detection_text: str,
     hint_bank: str | None,
 ) -> str | None:
     """If LLM says Param/Papara but email/PDF clearly names a real bank, prefer that bank."""
@@ -168,7 +155,7 @@ def _reconcile_llm_bank_name(
     if hint and hint.lower() not in _FINTECH_FALSE_BANKS:
         log.info("bank_reconcile_fintech_trap prefer_hint llm=%s -> %s", n, hint)
         return hint
-    detected = canonical_bank_name(_detect_bank_from_text(text))
+    detected = canonical_bank_name(_detect_bank_from_text(bank_detection_text))
     if detected and detected.lower() not in _FINTECH_FALSE_BANKS:
         log.info("bank_reconcile_fintech_trap prefer_text llm=%s -> %s", n, detected)
         return detected
@@ -260,6 +247,8 @@ def parse_statement(
     llm_min_tx_threshold: int = 0,
     learned_rules: dict[str, Any] | None = None,
     skip_learned_rules: bool = False,
+    email_subject: str | None = None,
+    email_sender: str | None = None,
 ) -> ParsedStatement:
     """Parse statement text: optional learned local regex, then LLM.
 
@@ -267,11 +256,13 @@ def parse_statement(
         learned_rules: JSON rules from DB for this bank (regex trained after prior LLM success).
         skip_learned_rules: If True, skip local rules and go straight to LLM.
         llm_min_tx_threshold: Kept for API compatibility.
+        email_subject / email_sender: used with PDF text for bank detection (logo may be image-only).
     """
     text_fp = _text_fingerprint(text)
     bank_in = bank_name
-    # Param/Papara in DB/email JSON is not a real issuer — detect from PDF text instead
-    bank_name = resolve_bank_hint(bank_name, text)
+    bank_ctx = _bank_detection_context(text, email_subject, email_sender)
+    # Param/Papara in DB/email JSON is not a real issuer — detect from PDF+email text instead
+    bank_name = resolve_bank_hint(bank_name, bank_ctx)
 
     if bank_name:
         log.info("bank_identified bank=%s", bank_name)
@@ -345,7 +336,7 @@ def parse_statement(
         if llm_data is not None:
             result = _llm_result_to_parsed_statement(llm_data)
             prev_bank = result.bank_name
-            result.bank_name = _reconcile_llm_bank_name(result.bank_name, text, bank_name)
+            result.bank_name = _reconcile_llm_bank_name(result.bank_name, bank_ctx, bank_name)
             if (
                 prev_bank
                 and result.bank_name != prev_bank

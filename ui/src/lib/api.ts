@@ -590,6 +590,39 @@ export async function reparseStatements(
   return (await response.json()) as ReparseBatchResponse;
 }
 
+/** Ekstre satırında manuel banka seçimi (Param yanlış pozitif vb.) */
+export const KNOWN_BANK_OPTIONS: string[] = [
+  "Akbank",
+  "DenizBank",
+  "Enpara",
+  "Garanti BBVA",
+  "Halkbank",
+  "HSBC",
+  "ING Bank",
+  "İş Bankası",
+  "QNB Finansbank",
+  "TEB",
+  "VakifBank",
+  "Yapı Kredi",
+  "Ziraat Bankası",
+];
+
+export async function patchStatementBank(
+  docId: number,
+  bankName: string,
+  options?: RequestOptions
+): Promise<{ ok: boolean; doc_id: number; bank_name: string }> {
+  const response = await fetch(`api/statements/${docId}/bank`, {
+    method: "PATCH",
+    headers: withRequestHeaders({ "Content-Type": "application/json", Accept: "application/json" }, options),
+    body: JSON.stringify({ bank_name: bankName }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, `Banka güncellenemedi: ${response.status}`));
+  }
+  return (await response.json()) as { ok: boolean; doc_id: number; bank_name: string };
+}
+
 export type ActivityMailSync = {
   type: "mail_sync";
   id: string;

@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.52] – 2026-03-24
+
+### Fixes
+- **SQLite `database is locked`**: WAL, longer busy timeout, connection tuning; **single ingestion lock** so mail sync and batch re-parse never write concurrently.
+- **İş Bankası / Maximiles**: Stronger PDF text markers (`maximiles.com`, `MAXIMIL`, `0850 724`, etc.) before POS “Param” heuristics.
+
+### Features
+- **Statements UI**: Per-row **Bank** dropdown for manual correction (matches `PATCH /api/statements/{id}/bank`).
+
+---
+
 ## [1.0.51] – 2026-02-21
 
 ### Fixes

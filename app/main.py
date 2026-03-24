@@ -25,7 +25,12 @@ from app.db.models import AuditLog, EmailIngested, MailAccount, MailIngestionRun
 from app.db.session import get_session_factory
 from app.ingestion.gmail_oauth import GmailOAuthError
 from app.ingestion.gmail_oauth_flow import build_auth_url, exchange_code_for_tokens
-from app.ingestion.bank_identification import coalesce_bank_display, normalize_optional_llm_str
+from app.ingestion.bank_identification import (
+    canonical_bank_name,
+    coalesce_bank_display,
+    normalize_bank_name,
+    normalize_optional_llm_str,
+)
 from app.ingestion.service import MailIngestionService
 from app.auto_sync import get_auto_sync_status, update_settings as update_auto_sync_settings, run_scheduler
 import app.app_settings as app_settings
@@ -822,6 +827,65 @@ async def reparse_statements(request: Request):
         request_id=getattr(request.state, "request_id", None),
     )
     return result
+
+
+@app.patch("/api/statements/{doc_id}/bank")
+async def patch_statement_bank(doc_id: int, request: Request):
+    """Manually set display bank for a parsed document (fixes wrong Param / OCR). Body: {\"bank_name\": \"İş Bankası\"}."""
+    body = await request.json()
+    raw = (body.get("bank_name") or "").strip()
+    if not raw:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "bank_name_required", "message": "bank_name zorunlu."},
+        )
+    bank = canonical_bank_name(normalize_bank_name(raw))
+    if not bank:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "invalid_bank", "message": "Geçersiz banka adı."},
+        )
+    session_factory = get_session_factory()
+    try:
+        with session_factory() as session:
+            doc = session.get(StatementDocument, doc_id)
+            if not doc:
+                raise HTTPException(
+                    status_code=404,
+                    detail={"code": "not_found", "message": "Ekstre bulunamadı."},
+                )
+            if doc.parse_status != "parsed" or not doc.parsed_json:
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "not_parsed", "message": "Yalnızca parse edilmiş ekstrelerde banka değiştirilebilir."},
+                )
+            try:
+                parsed = json.loads(doc.parsed_json)
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail={"code": "bad_json", "message": "parsed_json okunamadı."},
+                )
+            parsed["bank_name"] = bank
+            notes = list(parsed.get("parse_notes") or [])
+            if "bank_manual_override" not in notes:
+                notes.append("bank_manual_override")
+            parsed["parse_notes"] = notes
+            doc.parsed_json = json.dumps(parsed, ensure_ascii=False)
+            session.commit()
+            log_event(
+                request_logger,
+                "statement_bank_patched",
+                category="parser",
+                doc_id=doc_id,
+                bank_name=bank,
+                request_id=getattr(request.state, "request_id", None),
+            )
+            return {"ok": True, "doc_id": doc_id, "bank_name": bank}
+    except HTTPException:
+        raise
+    except (OperationalError, SQLAlchemyError) as exc:
+        _raise_db_unavailable(exc, getattr(request.state, "request_id", None))
 
 
 @app.delete("/api/statements/{doc_id}")

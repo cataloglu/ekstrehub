@@ -11,7 +11,22 @@ BANK_PROFILES: tuple[BankProfile, ...] = (
     BankProfile(bank_name="Akbank", markers=("akbank", "axess")),
     BankProfile(bank_name="Garanti BBVA", markers=("garanti", "garantibbva", "miles&smiles", "miles smiles", "bonus kart")),
     BankProfile(bank_name="Yapı Kredi", markers=("yapikredi", "yapi kredi", "yapı kredi", "world card")),
-    BankProfile(bank_name="İş Bankası", markers=("isbank", "iş bank", "maximum kart", "maximiles", "maxipuan")),
+    # Maximiles Black: logo often image-only; rely on product columns, domain, İş call center.
+    BankProfile(
+        bank_name="İş Bankası",
+        markers=(
+            "isbank",
+            "iş bank",
+            "maximum kart",
+            "maximiles",
+            "maximiles black",
+            "maximiles.com",
+            "maximil",
+            "maxipuan",
+            "maxi puan",
+            "0850 724",
+        ),
+    ),
     BankProfile(bank_name="VakifBank", markers=("vakifbank", "vakıfbank")),
     BankProfile(bank_name="Ziraat Bankasi", markers=("ziraat",)),
     BankProfile(bank_name="QNB", markers=("qnb", "qnb finansbank")),
