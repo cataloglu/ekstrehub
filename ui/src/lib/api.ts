@@ -635,10 +635,16 @@ export type ActivityMailSync = {
   /** IMAP kullanıcı / e-posta */
   imap_user?: string | null;
   scanned: number;
+  /** İlk kez işlenen mail (yeni `emails_ingested` kaydı) */
   processed: number;
   saved: number;
   failed: number;
+  /** Aynı Message-ID zaten vardı — mail atlandı */
   duplicates: number;
+  /** Aynı PDF hash veya banka+dönem içerik tekrarı — ekstre eklenmedi */
+  duplicate_documents?: number;
+  /** PDF/CSV dışı veya parse edilemeyen ek */
+  skipped_attachments?: number;
   duration_seconds: number | null;
   /** İşlem notu / kısa özet (varsa) */
   notes?: string | null;

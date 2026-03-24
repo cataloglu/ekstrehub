@@ -1,4 +1,27 @@
-import type { ActivityEvent, ActivityLogResponse } from "./api";
+import type { ActivityEvent, ActivityLogResponse, ActivityMailSync } from "./api";
+
+/** Tablo / kart özet satırı: taranan = yeni mail + tekrar mail + hata (IMAP’ten gelen her mesaj). */
+export function formatMailSyncSummaryLine(ev: ActivityMailSync): string {
+  const dupDocs = ev.duplicate_documents ?? 0;
+  const skipAtt = ev.skipped_attachments ?? 0;
+  const parts = [
+    `taranan ${ev.scanned}`,
+    `yeni mail ${ev.processed}`,
+    `tekrar mail ${ev.duplicates}`,
+    `yeni ekstre ${ev.saved}`,
+  ];
+  if (dupDocs > 0) {
+    parts.push(`tekrar ekstre ${dupDocs}`);
+  }
+  if (skipAtt > 0) {
+    parts.push(`atlanan ek ${skipAtt}`);
+  }
+  if (ev.failed > 0) {
+    parts.push(`hata ${ev.failed}`);
+  }
+  parts.push(`süre ${ev.duration_seconds ?? "—"}s`);
+  return parts.join(" · ");
+}
 
 /** Panoya yazma — HA / Ingress’te clipboard API bazen çalışmaz; textarea fallback. */
 export async function copyTextRobust(text: string): Promise<void> {
@@ -75,7 +98,7 @@ export function buildActivityLogPlainText(
   for (const ev of acts) {
     if (ev.type === "mail_sync") {
       const acc = [ev.account_label, ev.imap_user].filter(Boolean).join(" · ") || `hesap_id=${ev.mail_account_id ?? "—"}`;
-      const summary = `run=${ev.run_id} taranan=${ev.scanned} kaydedilen=${ev.saved} islenen=${ev.processed} tekrar=${ev.duplicates} hata=${ev.failed} sure_sn=${ev.duration_seconds ?? "—"}`;
+      const summary = `run=${ev.run_id} · ${formatMailSyncSummaryLine(ev)}`;
       lines.push(
         [
           ev.timestamp ?? "",

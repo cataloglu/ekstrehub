@@ -52,6 +52,7 @@ import {
   buildClientLogsPlainText,
   copyTextRobust,
   downloadTextFile,
+  formatMailSyncSummaryLine,
 } from "./lib/logExport";
 
 type LoadState = "idle" | "loading" | "success" | "error";
@@ -2378,7 +2379,7 @@ export function App() {
                         {filteredActivityEvents.map((ev) => {
                           if (ev.type === "mail_sync") {
                             const acc = [ev.account_label, ev.imap_user].filter(Boolean).join(" · ") || `hesap #${ev.mail_account_id ?? "—"}`;
-                            const sum = `taranan ${ev.scanned} · kayıt ${ev.saved} · tekrar ${ev.duplicates} · süre ${ev.duration_seconds ?? "—"}s`;
+                            const sum = formatMailSyncSummaryLine(ev);
                             return (
                               <tr key={ev.id}>
                                 <td className="logTdMono" title={ev.timestamp ?? ""}>{fmtActivityDate(ev.timestamp)}</td>
@@ -2386,7 +2387,9 @@ export function App() {
                                 <td><span className="logTdStatus">{ev.status}</span></td>
                                 <td className="logTdMono">run#{ev.run_id}</td>
                                 <td className="logTdBreak">{acc}</td>
-                                <td className="logTdBreak">{sum}{ev.notes ? ` · ${ev.notes}` : ""}</td>
+                                <td className="logTdBreak" title="Taranan = yeni mail + tekrar mail + hata. Yeni ekstre = ilk kez kaydedilen PDF/CSV.">
+                                  {sum}{ev.notes ? ` · ${ev.notes}` : ""}
+                                </td>
                               </tr>
                             );
                           }
@@ -2447,11 +2450,17 @@ export function App() {
                               {ev.notes ? (
                                 <p className="muted" style={{ fontSize: "0.78rem", margin: "0 0 8px", lineHeight: 1.35 }}>{ev.notes}</p>
                               ) : null}
-                              <div className="logsItemDetail">
+                              <div className="logsItemDetail" title="Taranan = yeni mail + tekrar mail + hata">
                                 <span className="logsChip logsChipNeutral">Taranan: {ev.scanned}</span>
-                                <span className="logsChip logsChipGreen">Kaydedilen: {ev.saved}</span>
-                                {ev.processed > 0 && <span className="logsChip logsChipNeutral">İşlenen: {ev.processed}</span>}
-                                {ev.duplicates > 0 && <span className="logsChip logsChipMuted">Tekrar: {ev.duplicates}</span>}
+                                <span className="logsChip logsChipNeutral">Yeni mail: {ev.processed}</span>
+                                <span className="logsChip logsChipMuted">Tekrar mail: {ev.duplicates}</span>
+                                <span className="logsChip logsChipGreen">Yeni ekstre: {ev.saved}</span>
+                                {(ev.duplicate_documents ?? 0) > 0 && (
+                                  <span className="logsChip logsChipMuted">Tekrar ekstre: {ev.duplicate_documents}</span>
+                                )}
+                                {(ev.skipped_attachments ?? 0) > 0 && (
+                                  <span className="logsChip logsChipMuted">Atlanan ek: {ev.skipped_attachments}</span>
+                                )}
                                 {ev.failed > 0 && <span className="logsChip logsChipRed">Hata: {ev.failed}</span>}
                               </div>
                             </div>

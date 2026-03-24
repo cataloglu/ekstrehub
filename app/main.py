@@ -1303,6 +1303,8 @@ async def get_activity_log(request: Request, limit: int = 80):
                     "saved": run.saved_documents,
                     "failed": run.failed_messages,
                     "duplicates": run.duplicate_messages,
+                    "duplicate_documents": run.duplicate_documents,
+                    "skipped_attachments": run.skipped_attachments,
                     "duration_seconds": duration,
                     "notes": run.notes,
                 })
