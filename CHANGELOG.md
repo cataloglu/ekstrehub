@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.51] – 2026-02-21
+
+### Fixes
+- **Öğrenilmiş regex tek başına dönem/tarih doldurmuyordu** — LLM açıksa artık her zaman tam LLM parse (dönem, son ödeme, tutar, kart). Regex sadece LLM kapalıyken veya LLM hata verince yedek işlem satırları olarak kalır; LLM düşerse öğrenilmiş işlemler + PDF heuristik ile tarih/tutar doldurulur.
+
+---
+
 ## [1.0.50] – 2026-02-21
 
 ### Fixes

@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.51 (2026-02-21)
+
+### Düzeltmeler
+- **Ekstrelerde `—` tarih**: Öğrenilmiş kurallar sadece işlem satırı çıkarıyordu; LLM açıkken artık tam parse (dönem/tutar). LLM hata verirse öğrenilmiş işlemler korunur, PDF’den heuristik tarih.
+
+---
+
 ## 1.0.50 (2026-02-21)
 
 ### Düzeltmeler

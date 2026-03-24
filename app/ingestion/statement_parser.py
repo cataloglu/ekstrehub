@@ -1,7 +1,9 @@
-"""Statement parser — learned regex first (per bank), then LLM.
+"""Statement parser — learned regex (optional), then LLM for full metadata.
 
-If a bank has stored regex rules from a prior successful LLM parse, those run locally (no API).
-Otherwise PDF text goes to the configured LLM. A minimal fallback is used if LLM is unreachable.
+Learned rules only extract transaction lines; they do not fill period/due/totals. When an LLM URL
+is configured we always run the LLM for those fields (learned matches are skipped for the final
+result). If the LLM fails but learned rules matched lines, we keep those transactions and apply
+cheap PDF heuristics for dates/amounts where possible.
 """
 from __future__ import annotations
 
@@ -286,32 +288,42 @@ def parse_statement(
         llm_timeout_seconds,
     )
 
-    # ── Learned local rules (no API) ───────────────────────────────────────────
+    # ── Learned local rules (transaction lines only — no period/totals) ────────
+    learned_from_rules: ParsedStatement | None = None
     if learned_rules and not skip_learned_rules:
         from app.ingestion.learned_rules import try_apply_learned_rules
 
         local = try_apply_learned_rules(text, learned_rules, bank_name, text_fp=text_fp)
         if local and len(local.transactions) >= 1:
+            learned_from_rules = local
+            llm_on = bool((llm_api_url or "").strip())
+            if not llm_on:
+                from app.ingestion.statement_metadata_heuristic import enrich_parsed_statement_metadata
+
+                enrich_parsed_statement_metadata(local, text)
+                if not local.card_number:
+                    local.card_number = _extract_card_number(text)
+                log.info(
+                    "parser_parse_done path=learned_local_only bank=%s tx=%d notes=%s text_fp=%s",
+                    local.bank_name,
+                    len(local.transactions),
+                    local.parse_notes,
+                    text_fp,
+                )
+                _attach_statement_reminders(local, text)
+                return local
             log.info(
-                "learned_local_parse_ok bank=%s tx=%d text_fp=%s",
+                "learned_local_tx_ok prefer_llm_for_metadata bank=%s tx=%d text_fp=%s",
                 bank_name,
                 len(local.transactions),
                 text_fp,
             )
+        else:
             log.info(
-                "parser_parse_done path=learned_local bank=%s tx=%d notes=%s text_fp=%s",
-                local.bank_name,
-                len(local.transactions),
-                local.parse_notes,
+                "learned_local_not_applied bank=%s falling_back_to_llm text_fp=%s",
+                bank_name,
                 text_fp,
             )
-            _attach_statement_reminders(local, text)
-            return local
-        log.info(
-            "learned_local_not_applied bank=%s falling_back_to_llm text_fp=%s",
-            bank_name,
-            text_fp,
-        )
 
     # ── LLM parsing ───────────────────────────────────────────────────────────
     if llm_api_url:
@@ -363,7 +375,37 @@ def parse_statement(
             _attach_statement_reminders(result, text)
             return result
 
-        # LLM was configured but call failed (timeout, HTTP, invalid JSON, …)
+        # LLM failed — keep learned transactions if any + heuristics for header fields
+        if learned_from_rules and len(learned_from_rules.transactions) >= 1:
+            from app.ingestion.statement_metadata_heuristic import enrich_parsed_statement_metadata
+
+            lr = learned_from_rules
+            log.warning(
+                "llm_failed_using_learned_tx bank=%s err=%s tx=%d text_fp=%s",
+                bank_name,
+                llm_err,
+                len(lr.transactions),
+                text_fp,
+            )
+            enrich_parsed_statement_metadata(lr, text)
+            if not lr.card_number:
+                lr.card_number = _extract_card_number(text)
+            notes = list(lr.parse_notes or [])
+            if llm_err == "timeout":
+                notes.insert(0, "llm_timeout")
+            else:
+                notes.insert(0, "llm_failed")
+            notes.append("llm_failed_kept_learned_tx")
+            lr.parse_notes = notes
+            _attach_statement_reminders(lr, text)
+            log.info(
+                "parser_parse_done path=learned_plus_llm_fail bank=%s tx=%d text_fp=%s",
+                lr.bank_name,
+                len(lr.transactions),
+                text_fp,
+            )
+            return lr
+
         log.warning(
             "llm_unavailable_or_failed bank=%s err=%s text_fp=%s — empty statement",
             bank_name,
