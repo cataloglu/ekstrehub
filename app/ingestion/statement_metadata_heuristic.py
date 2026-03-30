@@ -55,7 +55,11 @@ def enrich_parsed_statement_metadata(ps: Any, text: str) -> None:
     """Mutate *ps* with header fields found in raw PDF text (no LLM)."""
     if not text:
         return
-    sample = text[:25_000]
+    # Scan head + tail: header info is usually first few pages, but totals can be at the end.
+    if len(text) > 40_000:
+        sample = text[:25_000] + "\n" + text[-15_000:]
+    else:
+        sample = text
 
     if ps.due_date is None:
         m = _DUE_NEAR.search(sample)

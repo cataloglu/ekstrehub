@@ -72,6 +72,24 @@ def parsed_statement_to_storage_dict(ps: ParsedStatement) -> dict[str, Any]:
     }
 
 
+def _validate_parsed_result(ps: ParsedStatement) -> None:
+    """Add parse_notes for suspicious values (does not reject)."""
+    if (
+        ps.minimum_due_try is not None
+        and ps.total_due_try is not None
+        and ps.minimum_due_try > ps.total_due_try > 0
+    ):
+        ps.parse_notes.append("warn_minimum_exceeds_total")
+    if (
+        ps.statement_period_start
+        and ps.statement_period_end
+        and ps.statement_period_start > ps.statement_period_end
+    ):
+        ps.parse_notes.append("warn_period_dates_reversed")
+    if ps.due_date and ps.statement_period_end and ps.due_date < ps.statement_period_end:
+        ps.parse_notes.append("warn_due_before_period_end")
+
+
 def _attach_statement_reminders(ps: ParsedStatement, text: str) -> None:
     """Fill statement_reminders from raw PDF text (not from LLM JSON)."""
     from app.ingestion.statement_reminders import extract_statement_reminders
@@ -80,11 +98,16 @@ def _attach_statement_reminders(ps: ParsedStatement, text: str) -> None:
 
 
 def is_llm_failure_empty(ps: ParsedStatement) -> bool:
-    """True when LLM was attempted but produced no transactions (timeout / API error)."""
+    """True when parse produced no transactions (timeout, API error, or LLM returned empty)."""
     if ps.transactions:
         return False
     notes = ps.parse_notes or []
-    return "llm_timeout" in notes or "llm_failed" in notes
+    return bool(
+        "llm_timeout" in notes
+        or "llm_failed" in notes
+        or "no_transactions_found" in notes
+        or "text_too_short" in notes
+    )
 
 
 # ── Bank detection (for logging/context only, no parsing rules) ───────────────
@@ -175,11 +198,22 @@ def _parse_date(val: Any) -> date | None:
 
 
 def _parse_float(val: Any) -> float | None:
+    """Parse a numeric value; handles TR format like '1.234,56' and standard '1234.56'."""
     if val is None:
         return None
     try:
         return float(val)
-    except Exception:
+    except (ValueError, TypeError):
+        pass
+    s = str(val).strip().replace("\u00a0", "")
+    if not s:
+        return None
+    # TR format: 1.234,56 → 1234.56
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return round(float(s), 2)
+    except (ValueError, TypeError):
         return None
 
 
@@ -199,7 +233,8 @@ def _llm_result_to_parsed_statement(data: dict[str, Any]) -> ParsedStatement:
         t = ParsedTransaction()
         t.date = _parse_date(tx.get("date"))
         t.description = str(tx.get("description") or "").strip()
-        t.amount = float(tx.get("amount") or 0)
+        amt = _parse_float(tx.get("amount"))
+        t.amount = amt if amt is not None else 0.0
         t.currency = str(tx.get("currency") or "TRY").upper()
         ps.transactions.append(t)
 
@@ -226,7 +261,7 @@ def _text_fingerprint(text: str) -> str:
 
 
 def _extract_card_number(text: str) -> str | None:
-    m = _CARD_RE.search(text[:3000])
+    m = _CARD_RE.search(text[:8000])
     if m:
         raw = m.group(0)
         digits_and_stars = re.sub(r"[\s-]", "", raw)
@@ -316,6 +351,15 @@ def parse_statement(
                 text_fp,
             )
 
+    # ── Short-circuit: text too short for meaningful parse ──────────────────
+    _MIN_TEXT_LEN = 50
+    if len((text or "").strip()) < _MIN_TEXT_LEN:
+        log.warning("text_too_short len=%d bank=%s text_fp=%s", len(text or ""), bank_name, text_fp)
+        short_fb = ParsedStatement()
+        short_fb.bank_name = bank_name or "Bilinmeyen Banka"
+        short_fb.parse_notes = ["text_too_short", "no_transactions_found"]
+        return short_fb
+
     # ── LLM parsing ───────────────────────────────────────────────────────────
     if llm_api_url:
         from app.ingestion.llm_parser import parse_with_llm
@@ -363,6 +407,7 @@ def parse_statement(
                 result.parse_notes,
                 text_fp,
             )
+            _validate_parsed_result(result)
             _attach_statement_reminders(result, text)
             return result
 

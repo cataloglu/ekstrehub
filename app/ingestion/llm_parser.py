@@ -60,6 +60,10 @@ Kurallar:
 - Kart numarasını gizlenmiş haliyle yaz (örn: 4548 08** **** 1234)
 - Eğer bir alan bulunamıyorsa JSON null kullan (tırnaksız). bank_name ve card_number için \
 asla "null", "none" veya "bilinmeyen" gibi metin yazma — bilinmiyorsa JSON null kullan.
+- SADECE metinde **gerçekten var olan** işlemleri çıkar; uydurma, tahmine dayalı satır ekleme. \
+Emin değilsen o satırı atla — eksik veri yanlış veriden iyidir.
+- minimum_due_try asla total_due_try'dan büyük olamaz.
+- period_start her zaman period_end'den önce (veya aynı) olmalıdır.
 - SADECE JSON döndür, markdown code block kullanma, açıklama yazma"""
 
 _USER_PROMPT_TEMPLATE = """\
@@ -73,9 +77,34 @@ Aşağıdaki banka ekstresi metnini ayrıştır ve tüm işlemleri çıkar:
 def _truncate_text(text: str) -> str:
     if len(text) <= _MAX_TEXT_CHARS:
         return text
-    # Keep first 2/3 (summary + first transactions) and last 1/3 (totals)
-    head = text[: int(_MAX_TEXT_CHARS * 0.7)]
-    tail = text[-int(_MAX_TEXT_CHARS * 0.3):]
+    # Page-aware split: try to cut at page boundaries (\f) to minimize mid-transaction loss.
+    pages = text.split("\f")
+    if len(pages) > 2:
+        head_pages: list[str] = []
+        tail_pages: list[str] = []
+        head_len = 0
+        head_budget = int(_MAX_TEXT_CHARS * 0.65)
+        for p in pages:
+            if head_len + len(p) < head_budget:
+                head_pages.append(p)
+                head_len += len(p)
+            else:
+                break
+        tail_budget = _MAX_TEXT_CHARS - head_len - 100
+        tail_len = 0
+        for p in reversed(pages[len(head_pages):]):
+            if tail_len + len(p) < tail_budget:
+                tail_pages.insert(0, p)
+                tail_len += len(p)
+            else:
+                break
+        if head_pages and tail_pages:
+            skipped = len(pages) - len(head_pages) - len(tail_pages)
+            sep = f"\n...[{skipped} sayfa kısaltıldı]...\n" if skipped > 0 else "\n"
+            return "\f".join(head_pages) + sep + "\f".join(tail_pages)
+    # Fallback: character-based head+tail
+    head = text[: int(_MAX_TEXT_CHARS * 0.65)]
+    tail = text[-int(_MAX_TEXT_CHARS * 0.30):]
     return head + "\n...[metin kısaltıldı]...\n" + tail
 
 
@@ -98,29 +127,27 @@ def _extract_json_from_response(content: str) -> dict[str, Any]:
 
 
 def _repair_truncated_json(content: str) -> dict[str, Any] | None:
-    """Attempt to repair truncated JSON by closing incomplete structures."""
-    # Find the last complete transaction (ends with "}" before any comma or bracket)
-    tx_end = content.rfind('}\n    ]')
-    if tx_end == -1:
-        tx_end = content.rfind('}\n  ]')
-    if tx_end == -1:
-        # Try to find last complete tx by looking for last complete }
-        # and close the array + object
-        last_complete_tx = content.rfind('\n    }')
-        if last_complete_tx == -1:
-            return None
-        truncated = content[:last_complete_tx + 6]  # include closing }
-        repaired = truncated + "\n  ]\n}"
-    else:
-        repaired = content[:tx_end + 7] + "\n}"
-    try:
-        result = json.loads(repaired)
-        log.warning("json_repaired_from_truncation transactions=%d", len(result.get("transactions", [])))
-        result.setdefault("parse_notes", [])
-        result["parse_notes"].append("llm_output_truncated")
-        return result
-    except json.JSONDecodeError:
-        return None
+    """Attempt to repair truncated JSON by brace-matching, not fixed whitespace."""
+    # Strategy: find the last complete '}' that keeps valid JSON when we close arrays/objects.
+    # Walk backwards through '}' positions and try closing the structure.
+    brace_positions = [i for i, c in enumerate(content) if c == "}"]
+    for pos in reversed(brace_positions):
+        candidate = content[: pos + 1]
+        # Count unclosed brackets
+        opens = candidate.count("[") - candidate.count("]")
+        open_braces = candidate.count("{") - candidate.count("}")
+        suffix = "]" * max(opens, 0) + "}" * max(open_braces, 0)
+        try:
+            result = json.loads(candidate + suffix)
+            if isinstance(result, dict) and "transactions" in result:
+                n = len(result.get("transactions", []))
+                log.warning("json_repaired_from_truncation transactions=%d", n)
+                result.setdefault("parse_notes", [])
+                result["parse_notes"].append("llm_output_truncated")
+                return result
+        except json.JSONDecodeError:
+            continue
+    return None
 
 
 def call_llm(

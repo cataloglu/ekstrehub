@@ -1,5 +1,23 @@
 # EkstreHub Changelog
 
+## 1.0.53 (2026-03-24)
+
+### Düzeltmeler
+- **CSV parse hatası sessiz kayıp**: Hatalı CSV artık `parse_failed` satırı olarak kaydedilir (Dosyalar'da görünür).
+- **İçerik dedupe yanlış pozitif**: Aynı banka/dönem farklı kart veya farklı toplam borç olan ekstreler artık atlanmaz (`total_due_try` + `card_number` dahil).
+- **LLM tx amount crash**: `"1.234,56"` gibi TR formatı veya geçersiz değerler artık sessizce 0 yerine `_parse_float` ile doğru parse edilir; `round(2)` sınırı.
+- **LLM truncation**: Uzun PDF'ler sayfa bazlı (form-feed) bölünür; orta sayfa kaybı azaltılır.
+- **JSON repair**: Brace-matching tabanlı; sabit whitespace bağımlılığı kaldırıldı.
+- **PDF extract**: Encrypted/corrupt/boş PDF'ler `PDFExtractionError` ile net hata; parse_failed olarak kaydedilir.
+- **Boş metin LLM'e gönderilmez**: 50 karakterden kısa metin `text_too_short` notu ile short-circuit.
+- **is_llm_failure_empty**: `no_transactions_found` olan tüm parse'lar artık `parse_failed` sayılır (0 işlemli ama `parsed` etiketli ekstreler önlenir).
+- **Kart numarası tespiti**: Arama penceresi 3000→8000 karakter.
+- **Heuristic metadata**: 25K sınırı yerine head+tail tarama; uzun PDF sonundaki bilgiler de bulunur.
+- **Parse doğrulama**: `minimum > total`, ters dönem tarihleri, erken due_date uyarı notları.
+- **LLM prompt**: Anti-hallucination kuralı eklendi.
+
+---
+
 ## 1.0.52 (2026-03-24)
 
 ### Düzeltmeler

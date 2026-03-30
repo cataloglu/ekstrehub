@@ -172,11 +172,11 @@ class MailIngestionService:
                                     {"rows": [r.__dict__ if hasattr(r, "__dict__") else r for r in parsed_rows]},
                                     default=str,
                                 )
-                            except Exception:
+                                summary.csv_rows_parsed += len(parsed_rows)
+                            except Exception as exc:
                                 parse_status = "parse_failed"
-                                summary.skipped_attachments += 1
-                                continue
-                            summary.csv_rows_parsed += len(parsed_rows)
+                                parsed_json = json.dumps({"parse_notes": ["csv_parse_failed"], "error": str(exc)[:500]})
+                                log.warning("csv_parse_failed file=%s err=%s", attachment.file_name, exc)
 
                         elif doc_type == "pdf":
                             try:
@@ -214,34 +214,45 @@ class MailIngestionService:
                                     )
 
                                 # ── Katman 3: İçerik bazlı duplicate kontrolü ──
-                                # Banka + dönem + toplam tutar aynıysa başka bir
-                                # email/PDF'den zaten gelmiş demektir; tekrar ekleme.
+                                # Banka + dönem + kart + toplam tutar hepsi eşleşirse
+                                # başka bir email/PDF'den zaten gelmiş demektir.
                                 if (
                                     result.bank_name
                                     and result.statement_period_start
                                     and result.statement_period_end
                                     and result.total_due_try is not None
                                 ):
-                                    content_dupe = session.scalar(
-                                        select(StatementDocument).where(
-                                            StatementDocument.parse_status == "parsed",
+                                    dupe_filters = [
+                                        StatementDocument.parse_status == "parsed",
+                                        StatementDocument.parsed_json.contains(
+                                            f'"period_start": "{result.statement_period_start}"'
+                                        ),
+                                        StatementDocument.parsed_json.contains(
+                                            f'"period_end": "{result.statement_period_end}"'
+                                        ),
+                                        StatementDocument.parsed_json.contains(
+                                            f'"bank_name": "{result.bank_name}"'
+                                        ),
+                                        StatementDocument.parsed_json.contains(
+                                            f'"total_due_try": {result.total_due_try}'
+                                        ),
+                                    ]
+                                    if result.card_number:
+                                        dupe_filters.append(
                                             StatementDocument.parsed_json.contains(
-                                                f'"period_start": "{result.statement_period_start}"'
-                                            ),
-                                            StatementDocument.parsed_json.contains(
-                                                f'"period_end": "{result.statement_period_end}"'
-                                            ),
-                                            StatementDocument.parsed_json.contains(
-                                                f'"bank_name": "{result.bank_name}"'
-                                            ),
+                                                f'"card_number": "{result.card_number}"'
+                                            )
                                         )
+                                    content_dupe = session.scalar(
+                                        select(StatementDocument).where(*dupe_filters)
                                     )
                                     if content_dupe:
                                         log.info(
-                                            "content_duplicate_skipped bank=%s period=%s/%s existing_doc=%d",
+                                            "content_duplicate_skipped bank=%s period=%s/%s total=%s existing_doc=%d",
                                             result.bank_name,
                                             result.statement_period_start,
                                             result.statement_period_end,
+                                            result.total_due_try,
                                             content_dupe.id,
                                         )
                                         summary.duplicate_documents += 1

@@ -14,10 +14,11 @@ def test_is_llm_failure_empty_true_for_failed():
     assert is_llm_failure_empty(ps) is True
 
 
-def test_is_llm_failure_empty_false_when_no_llm_config():
+def test_is_llm_failure_empty_true_when_no_llm_config_and_no_tx():
+    """No LLM configured + 0 tx should be failure (parse_failed in DB)."""
     ps = ParsedStatement()
     ps.parse_notes = ["no_llm_configured", "no_transactions_found"]
-    assert is_llm_failure_empty(ps) is False
+    assert is_llm_failure_empty(ps) is True
 
 
 def test_is_llm_failure_empty_false_when_transactions():

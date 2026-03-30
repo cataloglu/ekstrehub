@@ -88,7 +88,7 @@ def test_parse_statement_fills_bank_when_llm_emits_null_string(monkeypatch: pyte
     monkeypatch.setattr("app.ingestion.llm_parser.parse_with_llm", fake_parse_with_llm)
 
     r = sp.parse_statement(
-        "x",
+        "x" * 100,
         "İş Bankası",
         llm_api_url="http://localhost:11434/v1",
         llm_model="m",

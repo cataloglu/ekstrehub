@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.0.53] – 2026-03-24
+
+### Fixes
+- **Silent CSV data loss**: Failed CSV attachments now stored as `parse_failed` rows.
+- **Content dedupe false positive**: Include `total_due_try` + `card_number` in duplicate filter.
+- **LLM tx amount crash**: Use `_parse_float` with TR locale support + `round(2)`.
+- **LLM truncation**: Page-aware (form-feed) splitting; brace-matching JSON repair.
+- **PDF extraction**: Explicit `PDFExtractionError` for encrypted/corrupt/empty files.
+- **Empty text short-circuit**: Skip LLM call for text < 50 chars.
+- **is_llm_failure_empty**: All zero-transaction results now `parse_failed`.
+- **Card regex window**: 3000 → 8000 chars.
+- **Heuristic metadata**: Head+tail scan for long PDFs.
+- **Parse validation**: Warnings for min>total, reversed dates, early due_date.
+- **LLM prompt**: Anti-hallucination and consistency rules added.
+
+---
+
 ## [1.0.52] – 2026-03-24
 
 ### Fixes
