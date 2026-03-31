@@ -1,5 +1,16 @@
 # EkstreHub Changelog
 
+## 1.0.55 (2026-03-31)
+
+### Özellikler
+- **Home Assistant otomatik bildirim**: Yeni ekstre kaydedildiğinde EkstreHub artık HA'ya `persistent_notification.create` gönderir ve `sensor.ekstrehub_new_statements` ile `sensor.ekstrehub_last_sync` durumlarını günceller (manuel webhook gerekmez).
+- **Her iki akışta da çalışır**: Bildirimler hem manuel sync hem auto-sync sonrası tetiklenir.
+
+### Düzeltmeler
+- **Legacy DB dayanıklılığı**: `learned_parser_rules` tablosu eksik olsa bile parser akışı kesilmeden devam eder.
+
+---
+
 ## 1.0.54 (2026-03-31)
 
 ### Düzeltmeler

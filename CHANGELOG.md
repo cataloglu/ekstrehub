@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.55] – 2026-03-31
+
+### Features
+- **Home Assistant automatic notifications**: When new statements are saved, EkstreHub now pushes `persistent_notification.create` and updates `sensor.ekstrehub_new_statements` + `sensor.ekstrehub_last_sync` through HA Supervisor API (no manual webhook needed).
+- **Works for both sync paths**: Notification flow is triggered after manual `/api/mail-ingestion/sync` and background auto-sync runs.
+
+### Fixes
+- **Legacy DB learned-rules resilience**: Missing `learned_parser_rules` table no longer breaks parsing flow; safe recovery path keeps statement ingestion running.
+
+---
+
 ## [1.0.54] – 2026-03-31
 
 ### Fixes

@@ -32,6 +32,7 @@ from app.ingestion.bank_identification import (
     normalize_optional_llm_str,
 )
 from app.ingestion.service import MailIngestionService
+from app.ha_notifier import notify_new_statements_to_ha
 from app.auto_sync import get_auto_sync_status, update_settings as update_auto_sync_settings, run_scheduler
 import app.app_settings as app_settings
 from app.logging_utils import configure_logging, log_event
@@ -426,6 +427,12 @@ async def run_mail_ingestion_sync(
         request_id=getattr(request.state, "request_id", None),
         run_id=summary["run_id"],
         idempotent=idempotent,
+    )
+    notify_new_statements_to_ha(
+        summary,
+        account_label=selected_account.account_label if selected_account else None,
+        imap_user=selected_account.imap_user if selected_account else None,
+        source="manual_sync",
     )
     return IngestionSyncResponse(status="ok", idempotent=idempotent, summary=summary)
 

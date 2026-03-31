@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from app.ha_notifier import notify_new_statements_to_ha
+
 log = logging.getLogger("ekstrehub.auto_sync")
 
 # Resolved at runtime relative to the DB file (or CWD as fallback)
@@ -142,6 +144,12 @@ async def run_scheduler(session_factory_getter, ingestion_service_factory) -> No
                         "auto_sync_completed account_id=%d saved=%d",
                         account.id,
                         summary_dict.get("saved_documents", 0),
+                    )
+                    notify_new_statements_to_ha(
+                        summary_dict,
+                        account_label=account.account_label,
+                        imap_user=account.imap_user,
+                        source="auto_sync",
                     )
                 except Exception as exc:
                     log.error("auto_sync_account_failed account_id=%d error=%s", account.id, exc)
