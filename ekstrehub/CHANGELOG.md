@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.54 (2026-03-31)
+
+### Düzeltmeler
+- **Legacy DB uyumu**: `learned_parser_rules` tablosu olmayan kurulumlarda parser akışı kırılmadan devam eder.
+- **Uçtan uca doğrulama**: Tüm posta kutusu yeniden indirme + failed-only yeniden çöz akışı doğrulandı; bekleyen/hatalı dosya kalmadan parse tamamlanır.
+
+---
+
 ## 1.0.53 (2026-03-24)
 
 ### Düzeltmeler

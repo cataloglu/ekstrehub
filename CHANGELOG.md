@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.54] – 2026-03-31
+
+### Fixes
+- **Legacy DB compatibility**: Parser flow now tolerates missing `learned_parser_rules` table and continues parsing instead of dropping PDFs.
+- **End-to-end verification**: Full mailbox re-sync + failed-only reparse path validated; final state is all documents parsed without pending/failed leftovers.
+
+---
+
 ## [1.0.53] – 2026-03-24
 
 ### Fixes
