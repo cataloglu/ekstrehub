@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.57] – 2026-04-03
+
+### Features
+- **Dashboard reminders simplified**: “Puan / Mil” panel now shows only spend-before-expiry points/miles items; non-points legal/service reminders are removed from this section for cleaner focus.
+
+---
+
 ## [1.0.56] – 2026-03-31
 
 ### Fixes

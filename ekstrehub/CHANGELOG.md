@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.57 (2026-04-03)
+
+### Özellikler
+- **Dashboard sadeleştirme**: “Puan / Mil Son Kullanım” paneli artık sadece harcanması gereken puan/mil kayıtlarını gösterir; yasal/servis hatırlatmaları bu bölümden çıkarıldı.
+
+---
+
 ## 1.0.56 (2026-03-31)
 
 ### Düzeltmeler

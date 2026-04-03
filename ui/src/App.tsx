@@ -1028,7 +1028,7 @@ export function App() {
       .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
   }, [statements]);
 
-  /** Aktif PDF hatırlatmaları (son tarihi geçmemiş); puan / MaxiMil öne çıkar. */
+  /** Dashboard: yalnızca puan/mil son kullanım hatırlatmaları (son tarihi geçmemiş). */
   const activeDashboardReminders = useMemo(() => {
     type Row = {
       stmtId: number;
@@ -1045,6 +1045,7 @@ export function App() {
         const isPoints =
           r.kind === "expiry" ||
           /pazarama|maximil|maxipuan|puan/i.test(r.title + r.text);
+        if (!isPoints) continue;
         rows.push({
           stmtId: s.id,
           bankName: s.bank_name,
@@ -1061,7 +1062,6 @@ export function App() {
       if (ea && !eb) return -1;
       if (!ea && eb) return 1;
       if (ea && eb) return ea.localeCompare(eb);
-      if (a.isPoints !== b.isPoints) return a.isPoints ? -1 : 1;
       return a.reminder.title.localeCompare(b.reminder.title, "tr");
     });
     return rows;
@@ -1311,9 +1311,9 @@ export function App() {
                     }}
                     onKeyDown={(e) => e.key === "Enter" && document.querySelector(".pointsReminderSection")?.scrollIntoView({ behavior: "smooth" })}
                   >
-                    <p className="kpiLabel">Puan &amp; hatırlatma</p>
+                    <p className="kpiLabel">Puan / Mil</p>
                     <p className="kpiValue kpiSmall">{activeDashboardReminders.length}</p>
-                    <p className="kpiSub">Son tarih / uyarı — aşağı kaydır</p>
+                    <p className="kpiSub">Harcama son tarihi — aşağı kaydır</p>
                   </div>
                 )}
               </div>
@@ -1322,9 +1322,9 @@ export function App() {
                 <section className="section pointsReminderSection">
                   <div className="sectionHeader pointsReminderSectionHeader">
                     <div>
-                      <h2 className="sectionTitle">Puanlar &amp; hatırlatmalar</h2>
+                      <h2 className="sectionTitle">Puan / Mil Son Kullanım</h2>
                       <p className="sectionSub">
-                        Pazarama, MaxiMil ve son kullanma tarihli bildirimler — harcamayı kaçırma.
+                        Sadece harcanması gereken puan/mil bildirimleri.
                       </p>
                     </div>
                     <button
@@ -1346,10 +1346,10 @@ export function App() {
                       return (
                         <li
                           key={`${row.stmtId}-${idx}-${r.title.slice(0, 24)}`}
-                          className={`pointsReminderRow${row.isPoints ? " pointsReminderRowPoints" : ""}${urgent ? " pointsReminderRowUrgent" : ""}`}
+                          className={`pointsReminderRow pointsReminderRowPoints${urgent ? " pointsReminderRowUrgent" : ""}`}
                         >
                           <div className="pointsReminderIcon" aria-hidden>
-                            {row.isPoints ? "🎁" : "📌"}
+                            🎁
                           </div>
                           <div className="pointsReminderBody">
                             <div className="pointsReminderTitleRow">
