@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.56] – 2026-03-31
+
+### Fixes
+- **Parser timeout resilience**: LLM timeout now triggers one automatic retry with increased timeout before marking the statement as failed.
+- **Observability**: Successful second attempt is marked with `llm_retry_success` parse note for easier troubleshooting.
+
+---
+
 ## [1.0.55] – 2026-03-31
 
 ### Features

@@ -96,3 +96,46 @@ def test_parse_statement_fills_bank_when_llm_emits_null_string(monkeypatch: pyte
     )
     assert r.bank_name == "İş Bankası"
     assert len(r.transactions) == 1
+
+
+def test_parse_statement_retries_once_after_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.ingestion import statement_parser as sp
+
+    calls: list[int] = []
+
+    def fake_parse_with_llm(
+        text: str,
+        api_url: str,
+        model: str,
+        api_key: str = "",
+        timeout_seconds: int = 120,
+        *,
+        text_fp: str | None = None,
+    ):
+        calls.append(timeout_seconds)
+        if len(calls) == 1:
+            return None, "timeout"
+        return (
+            {
+                "bank_name": "İş Bankası",
+                "transactions": [
+                    {"date": "2026-01-01", "description": "x", "amount": 1.0, "currency": "TRY"},
+                ],
+            },
+            None,
+        )
+
+    monkeypatch.setattr("app.ingestion.llm_parser.parse_with_llm", fake_parse_with_llm)
+
+    r = sp.parse_statement(
+        "x" * 100,
+        "İş Bankası",
+        llm_api_url="http://localhost:11434/v1",
+        llm_model="m",
+        llm_api_key="",
+        llm_timeout_seconds=90,
+    )
+    assert r.bank_name == "İş Bankası"
+    assert len(r.transactions) == 1
+    assert "llm_retry_success" in r.parse_notes
+    assert calls == [90, 180]

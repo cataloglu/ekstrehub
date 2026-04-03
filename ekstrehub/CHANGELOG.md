@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.56 (2026-03-31)
+
+### Düzeltmeler
+- **Parser timeout dayanıklılığı**: LLM timeout aldığında ekstre hemen `parse_failed` olmaz; artırılmış timeout ile bir kez otomatik retry yapılır.
+- **İzlenebilirlik**: Retry ile başarılı parse kayıtlarına `llm_retry_success` notu eklenir.
+
+---
+
 ## 1.0.55 (2026-03-31)
 
 ### Özellikler

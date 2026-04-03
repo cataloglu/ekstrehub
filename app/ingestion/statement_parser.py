@@ -369,6 +369,7 @@ def parse_statement(
             llm_model,
             text_fp,
         )
+        llm_retried = False
         llm_data, llm_err = parse_with_llm(
             text=text,
             api_url=llm_api_url,
@@ -377,8 +378,38 @@ def parse_statement(
             timeout_seconds=llm_timeout_seconds,
             text_fp=text_fp,
         )
+        if llm_data is None and llm_err == "timeout":
+            retry_timeout = min(max(llm_timeout_seconds + 90, llm_timeout_seconds * 2), 420)
+            if retry_timeout > llm_timeout_seconds:
+                llm_retried = True
+                log.info(
+                    "llm_retry_start bank=%s model=%s first_timeout=%ds retry_timeout=%ds text_fp=%s",
+                    bank_name,
+                    llm_model,
+                    llm_timeout_seconds,
+                    retry_timeout,
+                    text_fp,
+                )
+                llm_data, llm_err = parse_with_llm(
+                    text=text,
+                    api_url=llm_api_url,
+                    model=llm_model,
+                    api_key=llm_api_key,
+                    timeout_seconds=retry_timeout,
+                    text_fp=text_fp,
+                )
+                if llm_data is None:
+                    log.warning(
+                        "llm_retry_failed bank=%s model=%s reason=%s text_fp=%s",
+                        bank_name,
+                        llm_model,
+                        llm_err,
+                        text_fp,
+                    )
         if llm_data is not None:
             result = _llm_result_to_parsed_statement(llm_data)
+            if llm_retried:
+                result.parse_notes.append("llm_retry_success")
             prev_bank = result.bank_name
             result.bank_name = _reconcile_llm_bank_name(result.bank_name, bank_ctx, bank_name)
             if (
