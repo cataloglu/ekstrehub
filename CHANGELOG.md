@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.58] – 2026-04-04
+
+### Fixes
+- **Points/miles expiry accuracy**: Reminder extraction now scores dates by local context and excludes statement header dates (`Hesap Kesim`, `Son Ödeme`, `Dönem Borcu`) from loyalty expiry detection.
+- **Expiry classification tightened**: Entries are marked `expiry` only when explicit expiry/deadline cues exist, reducing false positives in “Puan / Mil” dashboard items.
+
+---
+
 ## [1.0.57] – 2026-04-03
 
 ### Features

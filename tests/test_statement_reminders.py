@@ -51,3 +51,28 @@ def test_parse_statement_includes_reminders() -> None:
     ps.parse_notes = ["test"]
     _attach_statement_reminders(ps, _ISBANK_SAMPLE)
     assert len(ps.statement_reminders) >= 2
+
+
+def test_header_dates_are_not_misread_as_points_expiry() -> None:
+    text = """
+    HESAP BİLGİLERİ
+    Hesap Kesim Tarihi :2 Mart 2026
+    Son Ödeme Tarihi :12 Mart 2026
+    Dönem Borcu :403.487,40 TL
+    Ödenmesi Gereken Asgari Tutar/Oran
+    """
+    reminders = extract_statement_reminders(text)
+    assert reminders
+    assert all(r["kind"] != "expiry" for r in reminders)
+    assert all(r.get("expires_on") is None for r in reminders)
+
+
+def test_points_expiry_prefers_year_end_deadline() -> None:
+    text = """
+    2023 yılında kazanılan MaxiMillerin kullanım süresi 31.12.2025 tarihinde sona ermektedir.
+    Henüz kullanmadığınız MaxiMil'inizi 31 Aralık 2025 tarihine kadar kullanmanızı önemle hatırlatırız.
+    """
+    reminders = extract_statement_reminders(text)
+    assert len(reminders) == 1
+    assert reminders[0]["kind"] == "expiry"
+    assert reminders[0]["expires_on"] == "2025-12-31"

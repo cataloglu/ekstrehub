@@ -50,6 +50,19 @@ _DATE_TR_WORD = re.compile(
     re.IGNORECASE,
 )
 
+_POINTS_CUE = re.compile(
+    r"(pazarama|maximil|maxipuan|maximiles|maxi\s*miller|puan(?:lar[ıi]n[ıi]z)?|mil(?:ler)?)",
+    re.IGNORECASE,
+)
+_EXPIRY_CUE = re.compile(
+    r"(kullan[ıi]m\s+s[üu]resi|sona\s+erm|son\s+kullan(?:ma)?|tarihine\s+kadar|kadar\s+kullan)",
+    re.IGNORECASE,
+)
+_NON_EXPIRY_DATE_CUE = re.compile(
+    r"(hesap\s+kesim\s+tarihi|son\s+[öo]deme\s+tarihi|d[öo]nem\s+borcu|asgari|m[üu][sş]teri\s+numaras[ıi]|kart\s+numaras[ıi])",
+    re.IGNORECASE,
+)
+
 
 def _parse_dates_from_text(text: str) -> list[date]:
     out: list[date] = []
@@ -72,36 +85,59 @@ def _parse_dates_from_text(text: str) -> list[date]:
     return out
 
 
+def _parse_dates_with_span(text: str) -> list[tuple[date, int, int]]:
+    out: list[tuple[date, int, int]] = []
+    for m in _DATE_DMY.finditer(text):
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        try:
+            out.append((date(y, mo, d), m.start(), m.end()))
+        except ValueError:
+            pass
+    for m in _DATE_TR_WORD.finditer(text):
+        d = int(m.group(1))
+        mon_raw = m.group(2).lower()
+        mon = _TR_MONTHS.get(mon_raw)
+        y = int(m.group(3))
+        if mon:
+            try:
+                out.append((date(y, mon, d), m.start(), m.end()))
+            except ValueError:
+                pass
+    return out
+
+
 def _pick_expiry_date(paragraph: str, dates: list[date]) -> date | None:
     """Prefer the date that appears in expiry / deadline context."""
     if not dates:
         return None
     low = paragraph.lower()
-    # Phrases like "31.12.2025 tarihinde sona ermektedir"
-    if "sona erm" in low or "kullanım süresi" in low or "kullanim suresi" in low:
+    spans = _parse_dates_with_span(paragraph)
+    best: tuple[int, date] | None = None
+    for dt, st, en in spans:
+        left = max(0, st - 56)
+        right = min(len(low), en + 56)
+        around = low[left:right]
+        score = 0
+        if _EXPIRY_CUE.search(around):
+            score += 6
+        if _POINTS_CUE.search(around):
+            score += 3
+        if _NON_EXPIRY_DATE_CUE.search(around):
+            score -= 8
+        # Loyalty expiries are often year-end; weak tie-breaker.
+        if _POINTS_CUE.search(low) and dt.month == 12 and dt.day >= 28:
+            score += 1
+        if best is None or score > best[0] or (score == best[0] and dt > best[1]):
+            best = (score, dt)
+    if best and best[0] > 0:
+        return best[1]
+    if _EXPIRY_CUE.search(low) and not _NON_EXPIRY_DATE_CUE.search(low):
         return max(dates)
-    if "kadar" in low:
-        return max(dates)
-    if len(dates) == 1:
-        return dates[0]
-    return max(dates)
+    return None
 
 
 def _classify_kind(text: str) -> str:
     low = text.lower()
-    if any(
-        x in low
-        for x in (
-            "kullanım süresi",
-            "kullanim suresi",
-            "sona erm",
-            "pazarama",
-            "maximil",
-            "maxipuan",
-            "puan",
-        )
-    ):
-        return "expiry"
     if any(
         x in low
         for x in (
@@ -119,6 +155,12 @@ def _classify_kind(text: str) -> str:
         return "contract"
     if "üstü kalsın" in low or "ustu kalsin" in low or "yuvarlama" in low:
         return "service_change"
+    has_points = bool(_POINTS_CUE.search(low))
+    has_expiry = bool(_EXPIRY_CUE.search(low))
+    if has_points and has_expiry:
+        return "expiry"
+    if has_expiry and not _NON_EXPIRY_DATE_CUE.search(low):
+        return "expiry"
     return "info"
 
 

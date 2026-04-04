@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.58 (2026-04-04)
+
+### Düzeltmeler
+- **Puan/mil son kullanım doğruluğu**: Hatırlatma tarih seçimi artık metin çevresine göre puanlanır; `Hesap Kesim`, `Son Ödeme`, `Dönem Borcu` gibi ekstre başlığı tarihleri son kullanım tarihi sanılmaz.
+- **Expiry sınıflandırması sıkılaştırıldı**: Kayıtlar yalnızca açık son kullanım/sona erme ifadesi varsa `expiry` olur; “Puan / Mil” panelindeki yanlış pozitifler azaltıldı.
+
+---
+
 ## 1.0.57 (2026-04-03)
 
 ### Özellikler
