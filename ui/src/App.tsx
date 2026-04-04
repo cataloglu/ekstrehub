@@ -334,6 +334,10 @@ export function App() {
     !!llmSettings?.llm_enabled && (llmSettings.llm_api_url || "").trim().length > 0;
 
   async function handleReparseStatement(stmt: Pick<StatementItem, "id" | "doc_type">) {
+    if (isReparsingStatements || reparseStmtId !== null) {
+      setSyncInfo("Yeniden çözme zaten çalışıyor, lütfen bitmesini bekleyin.");
+      return;
+    }
     if (stmt.doc_type !== "pdf") {
       setSyncInfo("Yeniden çöz: sadece PDF ekstreler desteklenir.");
       pushLog("info", "parser", `doc #${stmt.id} CSV/görsel — atlandı`);
@@ -345,6 +349,7 @@ export function App() {
       setSettingsSubTab("ai-parser");
       return;
     }
+    setIsReparsingStatements(true);
     setReparseStmtId(stmt.id);
     setErrorMessage("");
     try {
@@ -374,6 +379,7 @@ export function App() {
       pushLog("error", "parser", formatReparseFetchError(e));
     } finally {
       setReparseStmtId(null);
+      setIsReparsingStatements(false);
     }
   }
 

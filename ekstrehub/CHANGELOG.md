@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.61 (2026-04-04)
+
+### Düzeltmeler
+- **Yeniden çöz çift tıklama koruması**: Bir ekstre yeniden çözülürken yeni istek başlatılmaz; çakışan çağrılardan kaynaklanan yanlış UI hata durumu engellendi.
+
+---
+
 ## 1.0.60 (2026-04-04)
 
 ### Özellikler

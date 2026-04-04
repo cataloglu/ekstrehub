@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.61] – 2026-04-04
+
+### Fixes
+- **Reparse double-submit guard**: Statement reparse action is now locked while an existing reparse is running, preventing overlapping requests and false UI error states.
+
+---
+
 ## [1.0.60] – 2026-04-04
 
 ### Features
