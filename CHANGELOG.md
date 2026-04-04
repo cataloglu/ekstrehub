@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.60] – 2026-04-04
+
+### Features
+- **HA sensor statement details**: New statement notifications now include per-statement `due_date` and `total_debt` details in sensor attributes (`statement_details`, `latest_due_date`, `latest_total_debt`).
+
+### Fixes
+- **Reminder noise reduction**: Statement reminder extraction now skips generic account header blocks and card detail view shows only loyalty points/miles expiry reminders.
+
+---
+
 ## [1.0.59] – 2026-04-04
 
 ### Fixes

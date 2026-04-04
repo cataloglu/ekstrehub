@@ -116,9 +116,19 @@ function reminderDeadlinePassed(expiresOn: string | null | undefined): boolean {
   return end < new Date();
 }
 
+const LOYALTY_REMINDER_RX = /(pazarama|maximil|maximiles|maxipuan|bonus|puan|mil|sadakat)/i;
+
+function loyaltyReminders(reminders: StatementReminder[] | undefined): StatementReminder[] {
+  if (!reminders?.length) return [];
+  return reminders.filter((r) => {
+    if (r.kind !== "expiry") return false;
+    const hay = `${r.title ?? ""} ${r.text ?? ""}`;
+    return LOYALTY_REMINDER_RX.test(hay);
+  });
+}
+
 function countActiveReminders(reminders: StatementReminder[] | undefined): number {
-  if (!reminders?.length) return 0;
-  return reminders.filter((r) => !r.expires_on || !reminderDeadlinePassed(r.expires_on)).length;
+  return loyaltyReminders(reminders).filter((r) => !r.expires_on || !reminderDeadlinePassed(r.expires_on)).length;
 }
 
 /** Ekstre satırı banka açılır listesi: bilinen bankalar + mevcut (ör. yanlış tespit Param) */
@@ -1785,7 +1795,7 @@ export function App() {
                               {countActiveReminders(stmt.statement_reminders) > 0 && (
                                 <span
                                   className="parseNoteBadge parseNoteReminder"
-                                  title="PDF’teki hatırlatmalar (puan son tarihi, uyarılar vb.)"
+                                  title="PDF’teki puan/mil sadakat son kullanım hatırlatmaları"
                                 >
                                   📌 {countActiveReminders(stmt.statement_reminders)} hatırlatma
                                 </span>
@@ -1832,14 +1842,14 @@ export function App() {
 
                         {isOpen && (
                           <div className="txWrapper">
-                            {(stmt.statement_reminders?.length ?? 0) > 0 && (
+                            {loyaltyReminders(stmt.statement_reminders).length > 0 && (
                               <div className="stmtReminders">
-                                <div className="stmtRemindersTitle">Ekstre hatırlatmaları</div>
+                                <div className="stmtRemindersTitle">Puan / Mil hatırlatmaları</div>
                                 <p className="stmtRemindersHint">
-                                  PDF’teki özel bildirimler; son kullanma tarihi geçince soluk gösterilir.
+                                  Yalnızca sadakat puanı/mil son kullanım bildirimleri gösterilir.
                                 </p>
                                 <ul className="stmtRemindersList">
-                                  {(stmt.statement_reminders ?? []).map((r, ri) => {
+                                  {loyaltyReminders(stmt.statement_reminders).map((r, ri) => {
                                     const expired = r.expires_on ? reminderDeadlinePassed(r.expires_on) : false;
                                     const kind = REMINDER_KIND_LABEL[r.kind] ?? r.kind;
                                     return (

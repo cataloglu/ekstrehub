@@ -16,8 +16,7 @@ _TRIGGER = re.compile(
     r"sona\s+erm|hatırlat|hatirlat|mesajınız\s+var|mesajiniz\s+var|"
     r"\basgari\b|nakit\s+çekilemeyecek|nakit\s+cekilemeyecek|dönem\s+borcunuzun|donem\s+borcunuzun|"
     r"sözleşme\s+değişikliği|sozlesme\s+degisikligi|üstü\s+kalsın|ustu\s+kalsin|"
-    r"yuvarlama\s+tutarı|yuvarlama\s+tutari|kredi\s+kartı\s+hesap\s+özeti|"
-    r"kredi\s+karti\s+hesap\s+ozeti)",
+    r"yuvarlama\s+tutarı|yuvarlama\s+tutari)",
     re.IGNORECASE,
 )
 
@@ -60,6 +59,18 @@ _EXPIRY_CUE = re.compile(
 )
 _NON_EXPIRY_DATE_CUE = re.compile(
     r"(hesap\s+kesim\s+tarihi|son\s+[öo]deme\s+tarihi|d[öo]nem\s+borcu|asgari|m[üu][sş]teri\s+numaras[ıi]|kart\s+numaras[ıi])",
+    re.IGNORECASE,
+)
+_HEADER_FIELD_CUE = re.compile(
+    r"(hesap\s*/\s*kart\s+bilgileri|hesap\s+bilgileri|m[üu][sş]teri\s+numaras[ıi]|kart\s+numaras[ıi]|kart\s+limiti|"
+    r"nakit\s+avans\s+limiti|hesap\s+kesim\s+tarihi|ekstre\s+d[öo]nemi|son\s+[öo]deme\s+tarihi|asgari\s+[öo]deme)",
+    re.IGNORECASE,
+)
+_STRONG_NOTICE_CUE = re.compile(
+    r"(mesaj[ıi]n[ıi]z\s+var|nakit\s+çekilemeyecek|nakit\s+cekilemeyecek|"
+    r"d[öo]nem\s+borcunuzun\s+asgari\s+tutar[ıi]ndan\s+az\s+[öo]deme|"
+    r"s[öo]zleşme\s+değişikliği|sozlesme\s+degisikligi|üstü\s+kalsın|ustu\s+kalsin|"
+    r"yuvarlama|pazarama|maximil|maxipuan|maximiles)",
     re.IGNORECASE,
 )
 
@@ -197,6 +208,19 @@ def _is_noise(p: str) -> bool:
     return False
 
 
+def _is_statement_header_block(p: str) -> bool:
+    """Skip generic account-info blocks accidentally classified as reminders."""
+    low = p.lower()
+    header_hits = len(_HEADER_FIELD_CUE.findall(low))
+    if header_hits < 2:
+        return False
+    if _POINTS_CUE.search(low) or _EXPIRY_CUE.search(low):
+        return False
+    if _STRONG_NOTICE_CUE.search(low):
+        return False
+    return True
+
+
 def _split_into_notice_blocks(text: str) -> list[str]:
     """Split dense PDF text (mostly single \\n) into separate notices."""
     lines = text.split("\n")
@@ -279,6 +303,8 @@ def extract_statement_reminders(text: str) -> list[dict[str, Any]]:
 
     for para in expanded:
         if _is_noise(para) and len(para) < 80:
+            continue
+        if _is_statement_header_block(para):
             continue
         if not _TRIGGER.search(para):
             continue

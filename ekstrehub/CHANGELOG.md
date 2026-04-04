@@ -1,5 +1,15 @@
 # EkstreHub Changelog
 
+## 1.0.60 (2026-04-04)
+
+### Özellikler
+- **HA sensöründe ekstre detayları**: Yeni ekstre bildirimlerinde sensör attribute’larına ekstre bazında `due_date` ve `total_debt` bilgileri eklendi (`statement_details`, `latest_due_date`, `latest_total_debt`).
+
+### Düzeltmeler
+- **Hatırlatma gürültüsü azaltıldı**: Ekstre hatırlatma çıkarımı genel hesap başlığı bloklarını atlar; kart detayındaki hatırlatma listesi yalnızca sadakat puanı/mil son kullanım kayıtlarını gösterir.
+
+---
+
 ## 1.0.59 (2026-04-04)
 
 ### Düzeltmeler

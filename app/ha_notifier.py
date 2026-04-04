@@ -70,6 +70,8 @@ def notify_new_statements_to_ha(
     duplicates = int(summary.get("duplicate_messages") or 0)
     failed = int(summary.get("failed_messages") or 0)
     run_id = summary.get("run_id")
+    details_raw = summary.get("statement_details")
+    statement_details = details_raw if isinstance(details_raw, list) else []
     account_text = " · ".join(x for x in [account_label, imap_user] if x) or "mail hesabı"
 
     title = "EkstreHub: Yeni ekstre bulundu"
@@ -88,7 +90,12 @@ def notify_new_statements_to_ha(
         "imap_user": imap_user,
         "source": source,
         "updated_at": now_iso,
+        "statement_details": statement_details,
     }
+    if statement_details:
+        first = statement_details[0] if isinstance(statement_details[0], dict) else {}
+        state_attrs["latest_due_date"] = first.get("due_date")
+        state_attrs["latest_total_debt"] = first.get("total_debt")
 
     try:
         _post_json(

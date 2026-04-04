@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from hashlib import sha256
+from typing import Any
 
 from sqlalchemy import select
 
@@ -41,8 +42,29 @@ class IngestionSummary:
     skipped_attachments: int = 0
     failed_messages: int = 0
     csv_rows_parsed: int = 0
+    statement_details: list[dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, int]:
+    def add_statement_detail(
+        self,
+        *,
+        file_name: str,
+        bank_name: str | None,
+        due_date: str | None,
+        total_debt: float | None,
+    ) -> None:
+        # Keep payload bounded for logs/API while still useful for HA sensor context.
+        if len(self.statement_details) >= 5:
+            return
+        self.statement_details.append(
+            {
+                "file_name": file_name,
+                "bank_name": bank_name,
+                "due_date": due_date,
+                "total_debt": total_debt,
+            }
+        )
+
+    def to_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "scanned_messages": self.scanned_messages,
@@ -53,6 +75,7 @@ class IngestionSummary:
             "skipped_attachments": self.skipped_attachments,
             "failed_messages": self.failed_messages,
             "csv_rows_parsed": self.csv_rows_parsed,
+            "statement_details": self.statement_details,
         }
 
 
@@ -83,13 +106,15 @@ class MailIngestionService:
             imap_retry_backoff_seconds=runtime.imap_retry_backoff_seconds,
         )
 
-    def run_sync(self, idempotency_key: str | None = None) -> tuple[dict[str, int], bool]:
+    def run_sync(self, idempotency_key: str | None = None) -> tuple[dict[str, Any], bool]:
         summary = IngestionSummary()
 
         with ingestion_write_lock:
             return self._run_sync_locked(idempotency_key, summary)
 
-    def _run_sync_locked(self, idempotency_key: str | None, summary: IngestionSummary) -> tuple[dict[str, int], bool]:
+    def _run_sync_locked(
+        self, idempotency_key: str | None, summary: IngestionSummary
+    ) -> tuple[dict[str, Any], bool]:
         session_factory = get_session_factory()
         with session_factory() as session:
             if idempotency_key:
@@ -108,6 +133,7 @@ class MailIngestionService:
                             "skipped_attachments": existing_run.skipped_attachments,
                             "failed_messages": existing_run.failed_messages,
                             "csv_rows_parsed": existing_run.csv_rows_parsed,
+                            "statement_details": [],
                         },
                         True,
                     )
@@ -263,6 +289,13 @@ class MailIngestionService:
                                     parsed_statement_to_storage_dict(result),
                                     ensure_ascii=False,
                                 )
+                                if parse_status == "parsed":
+                                    summary.add_statement_detail(
+                                        file_name=attachment.file_name,
+                                        bank_name=result.bank_name or bank,
+                                        due_date=str(result.due_date) if result.due_date else None,
+                                        total_debt=result.total_due_try,
+                                    )
                                 log.info(
                                     "pdf_parsed bank=%s transactions=%d total=%s",
                                     result.bank_name,

@@ -51,6 +51,14 @@ def test_notify_posts_service_and_sensor_states(monkeypatch) -> None:
             "processed_messages": 4,
             "duplicate_messages": 8,
             "failed_messages": 0,
+            "statement_details": [
+                {
+                    "file_name": "ekstre-1.pdf",
+                    "bank_name": "DenizBank",
+                    "due_date": "2026-04-12",
+                    "total_debt": 897729.32,
+                }
+            ],
         },
         account_label="Primary Gmail",
         imap_user="kart@catal.net",
@@ -64,4 +72,6 @@ def test_notify_posts_service_and_sensor_states(monkeypatch) -> None:
     ]
     assert sent[0][1]["title"] == "EkstreHub: Yeni ekstre bulundu"
     assert sent[1][1]["attributes"]["saved_documents"] == 3
+    assert sent[1][1]["attributes"]["statement_details"][0]["due_date"] == "2026-04-12"
+    assert sent[1][1]["attributes"]["latest_total_debt"] == 897729.32
     assert sent[2][1]["attributes"]["source"] == "auto_sync"

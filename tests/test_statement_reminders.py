@@ -62,9 +62,7 @@ def test_header_dates_are_not_misread_as_points_expiry() -> None:
     Ödenmesi Gereken Asgari Tutar/Oran
     """
     reminders = extract_statement_reminders(text)
-    assert reminders
-    assert all(r["kind"] != "expiry" for r in reminders)
-    assert all(r.get("expires_on") is None for r in reminders)
+    assert reminders == []
 
 
 def test_points_expiry_prefers_year_end_deadline() -> None:
