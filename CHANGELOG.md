@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.59] – 2026-04-04
+
+### Fixes
+- **HA notifier authorization**: Add-on now explicitly requests Home Assistant/Supervisor API access (`homeassistant_api`, `hassio_api`) so sync notifications can post without `401 Unauthorized`.
+- **Actionable notifier logs**: `ha_notify_failed` now logs HTTP status/body and a clear hint when authorization is missing.
+
+---
+
 ## [1.0.58] – 2026-04-04
 
 ### Fixes

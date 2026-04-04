@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.59 (2026-04-04)
+
+### Düzeltmeler
+- **HA bildirim yetkilendirmesi**: Add-on yapılandırmasına `homeassistant_api` ve `hassio_api` izinleri eklendi; sync sonrası bildirim/sensör yazımında görülen `401 Unauthorized` sorunu giderildi.
+- **Teşhis logları iyileştirildi**: `ha_notify_failed` artık HTTP durumunu ve gövde özetini yazar; yetki eksikse doğrudan çözüm ipucu verir.
+
+---
+
 ## 1.0.58 (2026-04-04)
 
 ### Düzeltmeler

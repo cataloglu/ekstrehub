@@ -121,6 +121,30 @@ def notify_new_statements_to_ha(
         )
         log.info("ha_notify_sent run_id=%s saved=%d source=%s", run_id, saved, source)
         return True
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="ignore")[:300]
+        except Exception:
+            body = ""
+        if exc.code == 401:
+            log.warning(
+                "ha_notify_failed run_id=%s err=unauthorized status=401 base=%s "
+                "hint=enable_hassio_api_and_homeassistant_api body=%s",
+                run_id,
+                base,
+                body or "-",
+            )
+            return False
+        log.warning(
+            "ha_notify_failed run_id=%s status=%s reason=%s base=%s body=%s",
+            run_id,
+            exc.code,
+            exc.reason,
+            base,
+            body or "-",
+        )
+        return False
     except (urllib.error.URLError, RuntimeError, OSError) as exc:
         log.warning("ha_notify_failed run_id=%s err=%s", run_id, exc)
         return False
