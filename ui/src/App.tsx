@@ -367,6 +367,8 @@ export function App() {
             ? "PDF postada bulunamadı (mesaj silinmiş / yanlış klasör)."
             : raw === "email_or_account_missing"
               ? "Bu ekstre için mail hesabı veya mesaj bağlantısı yok."
+              : raw === "non_credit_card_document"
+                ? "Bu dosya kredi kartı ekstresi değil (ekstre listesine alınmadı)."
               : raw.startsWith("pdf_extract_failed:")
                 ? "PDF okunamadı."
                 : raw;

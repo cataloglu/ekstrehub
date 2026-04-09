@@ -284,7 +284,10 @@ class MailIngestionService:
                                         summary.duplicate_documents += 1
                                         continue
 
-                                parse_status = "parse_failed" if is_llm_failure_empty(result) else "parsed"
+                                if "non_credit_card_document" in (result.parse_notes or []):
+                                    parse_status = "unsupported"
+                                else:
+                                    parse_status = "parse_failed" if is_llm_failure_empty(result) else "parsed"
                                 parsed_json = json.dumps(
                                     parsed_statement_to_storage_dict(result),
                                     ensure_ascii=False,

@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.62 (2026-04-04)
+
+### Düzeltmeler
+- **Kredi kartı olmayan PDF ayıklama**: Parser “İşlem Sonuç Formu”, fon alış/satış gibi yatırım/dekont belgelerini kredi kartı ekstresi olarak parse etmez; bu dosyaları `non_credit_card_document` olarak işaretler.
+- **Yeniden çöz hata mesajı netleşti**: Reparse akışı bu durumda özel hata kodu döner, arayüzde anlaşılır açıklama gösterilir.
+
+---
+
 ## 1.0.61 (2026-04-04)
 
 ### Düzeltmeler

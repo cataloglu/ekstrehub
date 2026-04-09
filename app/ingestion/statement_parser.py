@@ -23,6 +23,18 @@ from app.ingestion.bank_profiles import BANK_PROFILES
 
 log = logging.getLogger(__name__)
 
+_CREDIT_CARD_DOC_POSITIVE = re.compile(
+    r"(kredi\s*kart[ıi]|hesap\s*[öo]zeti|son\s*[öo]deme\s*tarihi|"
+    r"hesap\s*kesim\s*tarihi|d[öo]nem\s*borcu|asgari\s*[öo]deme|ekstre\s*d[öo]nemi)",
+    re.IGNORECASE,
+)
+_NON_CARD_DOC_STRONG = re.compile(
+    r"(i[şs]lem\s*sonu[cç]\s*formu|yat[ıi]r[ıi]m\s*kurulu[sş]unun\s*[üu]nvan[ıi]|"
+    r"portf[öo]yden\s*al[ıi][şs]/sat[ıi][şs]|fon\s*al[ıi][şs]|fon\s*sat[ıi][şs]|"
+    r"yat[ıi]r[ıi]m\s*fonlar[ıi]|hisse\s*senedi|virman\s*dekontu|eft\s*dekontu)",
+    re.IGNORECASE,
+)
+
 # ── Data classes ──────────────────────────────────────────────────────────────
 
 @dataclass
@@ -270,6 +282,21 @@ def _extract_card_number(text: str) -> str | None:
     return None
 
 
+def _looks_like_credit_card_statement(text: str) -> bool:
+    low = (text or "").lower()
+    has_positive = bool(_CREDIT_CARD_DOC_POSITIVE.search(low))
+    non_card_hits = len(_NON_CARD_DOC_STRONG.findall(low))
+    if non_card_hits >= 2 and not has_positive:
+        return False
+    if has_positive:
+        return True
+    # Fallback: card pattern + debt context.
+    has_card_no = bool(_CARD_RE.search((text or "")[:12000]))
+    if has_card_no and ("borç" in low or "borc" in low):
+        return True
+    return False
+
+
 # ── Main entry point ──────────────────────────────────────────────────────────
 
 def parse_statement(
@@ -313,6 +340,17 @@ def parse_statement(
         skip_learned_rules,
         llm_timeout_seconds,
     )
+
+    if not _looks_like_credit_card_statement(text):
+        fallback = ParsedStatement()
+        fallback.bank_name = bank_name or "Bilinmeyen Banka"
+        fallback.parse_notes = ["non_credit_card_document", "no_transactions_found"]
+        log.info(
+            "parser_parse_skipped_non_credit_card bank=%s text_fp=%s",
+            fallback.bank_name,
+            text_fp,
+        )
+        return fallback
 
     # ── Learned local rules (transaction lines only — no period/totals) ────────
     learned_from_rules: ParsedStatement | None = None

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.62] – 2026-04-04
+
+### Fixes
+- **Non-credit-card PDF rejection**: Parser now detects investment/dekont-style documents (e.g. “İşlem Sonuç Formu”, fund buy/sell slips) and marks them as non-credit-card instead of parsing them as card statements.
+- **Reparse UX clarity**: Reparse returns a dedicated `non_credit_card_document` error for these files and UI shows a clear explanation.
+
+---
+
 ## [1.0.61] – 2026-04-04
 
 ### Fixes

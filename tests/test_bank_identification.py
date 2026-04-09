@@ -87,8 +87,13 @@ def test_parse_statement_fills_bank_when_llm_emits_null_string(monkeypatch: pyte
     # Local import inside parse_statement resolves from llm_parser module
     monkeypatch.setattr("app.ingestion.llm_parser.parse_with_llm", fake_parse_with_llm)
 
+    cc_text = (
+        "KREDİ KARTI HESAP ÖZETİ\n"
+        "Son Ödeme Tarihi: 12.01.2026\n"
+        "Dönem Borcu: 1.234,56 TL\n"
+    )
     r = sp.parse_statement(
-        "x" * 100,
+        cc_text,
         "İş Bankası",
         llm_api_url="http://localhost:11434/v1",
         llm_model="m",
@@ -127,8 +132,13 @@ def test_parse_statement_retries_once_after_timeout(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr("app.ingestion.llm_parser.parse_with_llm", fake_parse_with_llm)
 
+    cc_text = (
+        "KREDİ KARTI HESAP ÖZETİ\n"
+        "Hesap Kesim Tarihi: 01.01.2026\n"
+        "Son Ödeme Tarihi: 11.01.2026\n"
+    )
     r = sp.parse_statement(
-        "x" * 100,
+        cc_text,
         "İş Bankası",
         llm_api_url="http://localhost:11434/v1",
         llm_model="m",
@@ -139,3 +149,40 @@ def test_parse_statement_retries_once_after_timeout(monkeypatch: pytest.MonkeyPa
     assert len(r.transactions) == 1
     assert "llm_retry_success" in r.parse_notes
     assert calls == [90, 180]
+
+
+def test_parse_statement_skips_non_credit_card_document(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.ingestion import statement_parser as sp
+
+    called = {"llm": 0}
+
+    def fake_parse_with_llm(*_args, **_kwargs):
+        called["llm"] += 1
+        return (
+            {
+                "bank_name": "DenizBank",
+                "transactions": [
+                    {"date": "2026-04-09", "description": "Fon Alış", "amount": 491148.33, "currency": "TRY"},
+                ],
+            },
+            None,
+        )
+
+    monkeypatch.setattr("app.ingestion.llm_parser.parse_with_llm", fake_parse_with_llm)
+    text = (
+        "Yatırım Kuruluşunun Ünvanı: DENIZBANK A.Ş.\n"
+        "İŞLEM SONUÇ FORMU\n"
+        "Portföyden alış/satış\n"
+        "Fon Alış\n"
+        "Tutar 491.148,33 TRY\n"
+    )
+    r = sp.parse_statement(
+        text,
+        "DenizBank",
+        llm_api_url="http://localhost:11434/v1",
+        llm_model="m",
+        llm_api_key="",
+    )
+    assert called["llm"] == 0
+    assert len(r.transactions) == 0
+    assert "non_credit_card_document" in r.parse_notes

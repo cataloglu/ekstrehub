@@ -233,11 +233,23 @@ def reparse_one_pdf_document(session: Session, doc: StatementDocument, mail: ima
         maybe_train_learned_rules(session, result.bank_name or bank_for_rules, text, result, llm)
 
     doc.parsed_json = _result_to_json(result)
-    if is_llm_failure_empty(result):
+    if "non_credit_card_document" in (result.parse_notes or []):
+        doc.parse_status = "unsupported"
+    elif is_llm_failure_empty(result):
         doc.parse_status = "parse_failed"
     else:
         doc.parse_status = "parsed"
     session.commit()
+
+    if "non_credit_card_document" in (result.parse_notes or []):
+        return {
+            "doc_id": doc.id,
+            "ok": False,
+            "error": "non_credit_card_document",
+            "bank_name": result.bank_name,
+            "transaction_count": 0,
+            "parse_notes": result.parse_notes,
+        }
 
     if is_llm_failure_empty(result):
         err = "llm_timeout" if "llm_timeout" in (result.parse_notes or []) else "llm_failed"
