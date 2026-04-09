@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.63 (2026-04-04)
+
+### Özellikler
+- **Mevcut yanlış parse kayıtları için tek tık temizlik**: AI Parser bölümüne, kredi kartı dışı şüpheli ekstreleri (max 50) yeniden çözdürüp `non_credit_card_document` olarak temizleyen yeni aksiyon eklendi.
+
+---
+
 ## 1.0.62 (2026-04-04)
 
 ### Düzeltmeler

@@ -131,6 +131,19 @@ function countActiveReminders(reminders: StatementReminder[] | undefined): numbe
   return loyaltyReminders(reminders).filter((r) => !r.expires_on || !reminderDeadlinePassed(r.expires_on)).length;
 }
 
+const NON_CARD_DOC_RX = /(işlem sonuç formu|yatırım|fon alış|fon satış|portföyden|hisse senedi|virman|dekont)/i;
+
+function isLikelyNonCardStatement(stmt: StatementItem): boolean {
+  const txText = (stmt.transactions ?? [])
+    .slice(0, 6)
+    .map((t) => t.description || "")
+    .join(" ");
+  const hay = `${stmt.email_subject ?? ""} ${txText}`;
+  const hasNonCardCue = NON_CARD_DOC_RX.test(hay);
+  const weakCardMeta = !stmt.due_date || (stmt.minimum_due_try ?? 0) <= 0;
+  return hasNonCardCue && weakCardMeta;
+}
+
 /** Ekstre satırı banka açılır listesi: bilinen bankalar + mevcut (ör. yanlış tespit Param) */
 function statementBankSelectOptions(current: string | null | undefined): string[] {
   const names = new Set<string>(KNOWN_BANK_OPTIONS);
@@ -3396,6 +3409,67 @@ export function App() {
                             }}
                           >
                             Tüm PDF’leri yeniden çöz (max 50)
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={
+                              isReparsingStatements
+                              || !(llmForm?.api_url?.trim() || llmSettings?.llm_api_url?.trim())
+                            }
+                            onClick={async () => {
+                              if (!window.confirm("Kredi kartı dışı olabilecek ekstreler yeniden denenecek. Devam?")) return;
+                              setIsReparsingStatements(true);
+                              setReparseSummary(null);
+                              try {
+                                const patch: Record<string, unknown> = {
+                                  llm_provider: llmForm!.provider,
+                                  llm_api_url: llmForm!.api_url,
+                                  llm_model: llmForm!.model,
+                                  llm_timeout_seconds: llmForm!.timeout,
+                                  llm_enabled: llmForm!.enabled,
+                                  llm_min_tx_threshold: llmForm!.min_tx_threshold,
+                                };
+                                if (llmForm!.api_key) patch.llm_api_key = llmForm!.api_key;
+                                await patchLlmSettings(patch);
+                                const list = await getStatements({ limit: 200 });
+                                const ids = list.items
+                                  .filter((it) => isLikelyNonCardStatement(it))
+                                  .map((it) => it.id)
+                                  .slice(0, 50);
+                                if (ids.length === 0) {
+                                  setReparseSummary("Şüpheli kredi kartı dışı kayıt bulunamadı.");
+                                  return;
+                                }
+                                let cleaned = 0;
+                                let ok = 0;
+                                let fail = 0;
+                                for (let i = 0; i < ids.length; i++) {
+                                  const id = ids[i];
+                                  setReparseSummary(`İşleniyor ${i + 1}/${ids.length} (ekstre #${id})…`);
+                                  try {
+                                    const r = await reparseStatements("selected", [id]);
+                                    const row = r.results?.[0];
+                                    if (row?.error === "non_credit_card_document") cleaned += 1;
+                                    else if (row?.ok) ok += 1;
+                                    else fail += 1;
+                                  } catch {
+                                    fail += 1;
+                                  }
+                                }
+                                setReparseSummary(
+                                  `Bitti: ${cleaned} ekstre dışı temizlendi, ${ok} yeniden parse, ${fail} sorunlu / ${ids.length} ekstre.`
+                                );
+                                await reloadCoreData();
+                                setSyncInfo("Şüpheli kredi kartı dışı kayıtlar yeniden değerlendirildi.");
+                              } catch (e) {
+                                setErrorMessage(formatReparseFetchError(e));
+                              } finally {
+                                setIsReparsingStatements(false);
+                              }
+                            }}
+                          >
+                            Kredi kartı dışı olabilecekleri temizle (max 50)
                           </button>
                         </div>
                         {reparseSummary && (

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.63] – 2026-04-04
+
+### Features
+- **One-click cleanup for existing bad parses**: Added an AI Parser action that re-runs only suspicious non-card statement rows (max 50) and auto-cleans items reclassified as `non_credit_card_document`.
+
+---
+
 ## [1.0.62] – 2026-04-04
 
 ### Fixes
