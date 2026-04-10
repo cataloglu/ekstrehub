@@ -131,6 +131,24 @@ function countActiveReminders(reminders: StatementReminder[] | undefined): numbe
   return loyaltyReminders(reminders).filter((r) => !r.expires_on || !reminderDeadlinePassed(r.expires_on)).length;
 }
 
+function loyaltyProgramOf(r: StatementReminder): string {
+  const fromPayload = (r.loyalty_program || "").trim();
+  if (fromPayload) return fromPayload;
+  const hay = `${r.title ?? ""} ${r.text ?? ""}`.toLowerCase();
+  if (hay.includes("pazarama")) return "Pazarama";
+  if (hay.includes("maximil") || hay.includes("maximiles")) return "MaxiMil";
+  if (hay.includes("maxipuan")) return "MaxiPuan";
+  if (hay.includes("mil")) return "Mil";
+  return "Puan";
+}
+
+function maskedCardLabel(cardNumber: string | null | undefined): string {
+  if (!cardNumber) return "Kart bilinmiyor";
+  const digits = cardNumber.replace(/\D/g, "");
+  if (digits.length >= 4) return `**** ${digits.slice(-4)}`;
+  return cardNumber;
+}
+
 const NON_CARD_DOC_RX = /(işlem sonuç formu|yatırım|fon alış|fon satış|portföyden|hisse senedi|virman|dekont)/i;
 
 function isLikelyNonCardStatement(stmt: StatementItem): boolean {
@@ -1064,26 +1082,30 @@ export function App() {
     type Row = {
       stmtId: number;
       bankName: string | null;
+      cardNumber: string | null;
       periodLabel: string;
+      periodEnd: string | null;
+      createdAt: string | null;
       fileName: string;
       reminder: StatementReminder;
-      isPoints: boolean;
+      loyaltyProgram: string;
+      remainingValueTry: number | null;
     };
     const rows: Row[] = [];
     for (const s of statements) {
-      for (const r of s.statement_reminders ?? []) {
+      for (const r of loyaltyReminders(s.statement_reminders)) {
         if (r.expires_on && reminderDeadlinePassed(r.expires_on)) continue;
-        const isPoints =
-          r.kind === "expiry" ||
-          /pazarama|maximil|maxipuan|puan/i.test(r.title + r.text);
-        if (!isPoints) continue;
         rows.push({
           stmtId: s.id,
           bankName: s.bank_name,
+          cardNumber: s.card_number,
           periodLabel: `${s.period_start ?? "—"} — ${s.period_end ?? "—"}`,
+          periodEnd: s.period_end,
+          createdAt: s.created_at,
           fileName: s.file_name,
           reminder: r,
-          isPoints,
+          loyaltyProgram: loyaltyProgramOf(r),
+          remainingValueTry: r.remaining_value_try ?? null,
         });
       }
     }
@@ -1097,6 +1119,52 @@ export function App() {
     });
     return rows;
   }, [statements]);
+
+  const loyaltyBalances = useMemo(() => {
+    type Bal = {
+      key: string;
+      bankName: string | null;
+      cardNumber: string | null;
+      loyaltyProgram: string;
+      remainingValueTry: number;
+      stmtId: number;
+      expiresOn: string | null;
+      periodEnd: string | null;
+      createdAt: string | null;
+    };
+    const byKey = new Map<string, Bal>();
+    for (const row of activeDashboardReminders) {
+      if (row.remainingValueTry == null || row.remainingValueTry <= 0) continue;
+      const key = `${row.bankName ?? ""}|${row.cardNumber ?? ""}|${row.loyaltyProgram}`;
+      const prev = byKey.get(key);
+      const nextVal: Bal = {
+        key,
+        bankName: row.bankName,
+        cardNumber: row.cardNumber,
+        loyaltyProgram: row.loyaltyProgram,
+        remainingValueTry: row.remainingValueTry,
+        stmtId: row.stmtId,
+        expiresOn: row.reminder.expires_on ?? null,
+        periodEnd: row.periodEnd,
+        createdAt: row.createdAt,
+      };
+      if (!prev) {
+        byKey.set(key, nextVal);
+        continue;
+      }
+      const prevRank = prev.periodEnd ?? prev.createdAt ?? "";
+      const nextRank = nextVal.periodEnd ?? nextVal.createdAt ?? "";
+      if (nextRank > prevRank) byKey.set(key, nextVal);
+    }
+    const items = Array.from(byKey.values()).sort((a, b) => {
+      if ((a.expiresOn ?? "") !== (b.expiresOn ?? "")) {
+        return (a.expiresOn ?? "9999-12-31").localeCompare(b.expiresOn ?? "9999-12-31");
+      }
+      return b.remainingValueTry - a.remainingValueTry;
+    });
+    const totalTry = items.reduce((sum, x) => sum + x.remainingValueTry, 0);
+    return { items, totalTry };
+  }, [activeDashboardReminders]);
 
   // Total debt = only unpaid (active) statements
   const totalDebt = useMemo(
@@ -1343,8 +1411,14 @@ export function App() {
                     onKeyDown={(e) => e.key === "Enter" && document.querySelector(".pointsReminderSection")?.scrollIntoView({ behavior: "smooth" })}
                   >
                     <p className="kpiLabel">Puan / Mil</p>
-                    <p className="kpiValue kpiSmall">{activeDashboardReminders.length}</p>
-                    <p className="kpiSub">Harcama son tarihi — aşağı kaydır</p>
+                    <p className="kpiValue kpiSmall">
+                      {loyaltyBalances.totalTry > 0 ? fmtTry(loyaltyBalances.totalTry) : activeDashboardReminders.length}
+                    </p>
+                    <p className="kpiSub">
+                      {loyaltyBalances.items.length > 0
+                        ? `${loyaltyBalances.items.length} kart/program bakiyesi — aşağı kaydır`
+                        : "Harcama son tarihi — aşağı kaydır"}
+                    </p>
                   </div>
                 )}
               </div>
@@ -1369,6 +1443,26 @@ export function App() {
                     </button>
                   </div>
                   <ul className="pointsReminderList">
+                    {loyaltyBalances.items.length > 0 && (
+                      <li className="pointsReminderRow pointsReminderRowPoints">
+                        <div className="pointsReminderIcon" aria-hidden>Σ</div>
+                        <div className="pointsReminderBody">
+                          <div className="pointsReminderTitleRow">
+                            <span className="pointsReminderTitle">Toplam kalan puan/mil değeri</span>
+                          </div>
+                          <div className="pointsReminderMeta" style={{ flexWrap: "wrap", rowGap: 6 }}>
+                            <span className="pointsReminderBank" style={{ fontWeight: 700 }}>
+                              {fmtTry(loyaltyBalances.totalTry)}
+                            </span>
+                            {loyaltyBalances.items.map((it) => (
+                              <span key={it.key} className="pointsReminderFile" style={{ borderStyle: "solid" }}>
+                                {(it.bankName ?? "—")} · {maskedCardLabel(it.cardNumber)} · {it.loyaltyProgram}: {fmtTry(it.remainingValueTry)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </li>
+                    )}
                     {activeDashboardReminders.map((row, idx) => {
                       const { reminder: r } = row;
                       const exp = r.expires_on;
@@ -1388,9 +1482,16 @@ export function App() {
                               <span className="pointsReminderKind">
                                 {REMINDER_KIND_LABEL[r.kind] ?? r.kind}
                               </span>
+                              {row.remainingValueTry != null && row.remainingValueTry > 0 && (
+                                <span className="pointsReminderKind">{fmtTry(row.remainingValueTry)}</span>
+                              )}
                             </div>
                             <div className="pointsReminderMeta">
                               <span className="pointsReminderBank">{row.bankName ?? "—"}</span>
+                              <span className="pointsReminderSep">·</span>
+                              <span className="pointsReminderPeriod">{maskedCardLabel(row.cardNumber)}</span>
+                              <span className="pointsReminderSep">·</span>
+                              <span className="pointsReminderPeriod">{row.loyaltyProgram}</span>
                               <span className="pointsReminderSep">·</span>
                               <span className="pointsReminderPeriod">{row.periodLabel}</span>
                               <span className="pointsReminderSep">·</span>

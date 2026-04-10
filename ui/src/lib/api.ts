@@ -92,6 +92,8 @@ export type StatementReminder = {
   text: string;
   kind: string;
   expires_on: string | null;
+  loyalty_program?: string | null;
+  remaining_value_try?: number | null;
 };
 
 export type StatementItem = {

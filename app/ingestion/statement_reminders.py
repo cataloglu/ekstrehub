@@ -73,6 +73,19 @@ _STRONG_NOTICE_CUE = re.compile(
     r"yuvarlama|pazarama|maximil|maxipuan|maximiles)",
     re.IGNORECASE,
 )
+_LOYALTY_PROGRAM_CUE = re.compile(r"(pazarama|maximil(?:es)?|maxipuan|puan|mil)", re.IGNORECASE)
+_LOYALTY_REMAINING_PATTERNS = (
+    re.compile(
+        r"(?:hen[üu]z\s+kullanmad[ıi][ğg]?[ıi]n[ıi]z|kalan)\s+([\d\.,]+)\s*tl\s+"
+        r"(pazarama\s+puan(?:[ıi]'?[ıi]n[ıi]z)?|maximil(?:es)?(?:'in)?|maxipuan(?:[ıi]'?[ıi]n[ıi]z)?|puan(?:lar[ıi]n[ıi]z)?|mil(?:ler)?)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(pazarama\s+puan(?:[ıi]'?[ıi]n[ıi]z)?|maximil(?:es)?(?:'in)?|maxipuan(?:[ıi]'?[ıi]n[ıi]z)?|puan(?:lar[ıi]n[ıi]z)?|mil(?:ler)?)"
+        r"[^\n]{0,40}?([\d\.,]+)\s*tl",
+        re.IGNORECASE,
+    ),
+)
 
 
 def _parse_dates_from_text(text: str) -> list[date]:
@@ -221,6 +234,62 @@ def _is_statement_header_block(p: str) -> bool:
     return True
 
 
+def _parse_tr_amount(amount_raw: str | None) -> float | None:
+    if not amount_raw:
+        return None
+    s = amount_raw.strip().replace(" ", "").replace("\u00a0", "")
+    if not s:
+        return None
+    if "," in s and "." in s:
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return round(float(s), 2)
+    except Exception:
+        return None
+
+
+def _loyalty_program_name(text: str) -> str | None:
+    low = text.lower()
+    if "pazarama" in low:
+        return "Pazarama"
+    if "maximil" in low or "maximiles" in low:
+        return "MaxiMil"
+    if "maxipuan" in low:
+        return "MaxiPuan"
+    if "mil" in low:
+        return "Mil"
+    if "puan" in low:
+        return "Puan"
+    return None
+
+
+def _extract_loyalty_remaining(text: str) -> tuple[str | None, float | None]:
+    if not _LOYALTY_PROGRAM_CUE.search(text):
+        return None, None
+    program = _loyalty_program_name(text)
+    for rx in _LOYALTY_REMAINING_PATTERNS:
+        m = rx.search(text)
+        if not m:
+            continue
+        groups = m.groups()
+        # pattern-1: (amount, program), pattern-2: (program, amount)
+        if groups and len(groups) >= 2:
+            if _parse_tr_amount(groups[0]) is not None:
+                amount = _parse_tr_amount(groups[0])
+                program = _loyalty_program_name(groups[1]) or program
+            else:
+                amount = _parse_tr_amount(groups[1])
+                program = _loyalty_program_name(groups[0]) or program
+            if amount is not None:
+                return program, amount
+    return program, None
+
+
 def _split_into_notice_blocks(text: str) -> list[str]:
     """Split dense PDF text (mostly single \\n) into separate notices."""
     lines = text.split("\n")
@@ -327,11 +396,14 @@ def extract_statement_reminders(text: str) -> list[dict[str, Any]]:
                 exp = _pick_expiry_date(para, dates)
 
         title = _title_for(para, kind)
+        loyalty_program, remaining_value_try = _extract_loyalty_remaining(f"{title}\n{para}")
         item: dict[str, Any] = {
             "title": title,
             "text": para[:4000],
             "kind": kind,
             "expires_on": exp.isoformat() if exp else None,
+            "loyalty_program": loyalty_program,
+            "remaining_value_try": remaining_value_try,
         }
         reminders.append(item)
 

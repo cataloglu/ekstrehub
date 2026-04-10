@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.64] – 2026-04-04
+
+### Features
+- **Loyalty dashboard totals**: Dashboard now aggregates remaining points/miles value from existing statements and shows a per-card/program summary in one view.
+- **Reminder enrichment**: Loyalty reminders now include structured fields (`loyalty_program`, `remaining_value_try`) extracted from statement text.
+
+---
+
 ## [1.0.63] – 2026-04-04
 
 ### Features

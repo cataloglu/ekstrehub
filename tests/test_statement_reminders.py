@@ -42,6 +42,10 @@ def test_extract_finds_pazarama_maximil_and_legal() -> None:
     assert any("MaxiMil" in t for t in titles)
     paz = next(r for r in reminders if "Pazarama" in r["title"])
     assert paz.get("expires_on") == "2025-12-31"
+    assert paz.get("loyalty_program") == "Pazarama"
+    assert paz.get("remaining_value_try") == 13.28
+    maxi = next(r for r in reminders if "MaxiMil" in r["title"])
+    assert maxi.get("remaining_value_try") == 992.96
 
 
 def test_parse_statement_includes_reminders() -> None:

@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.64 (2026-04-04)
+
+### Özellikler
+- **Puan/mil dashboard toplamı**: Mevcut ekstrelerden kalan puan/mil değeri toplanır; kart/program bazında tek ekranda özetlenir.
+- **Hatırlatma verisi zenginleştirildi**: Puan/mil hatırlatmalarından `loyalty_program` ve `remaining_value_try` alanları çıkarılır.
+
+---
+
 ## 1.0.63 (2026-04-04)
 
 ### Özellikler
