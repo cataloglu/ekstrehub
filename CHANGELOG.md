@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.67] – 2026-04-10
+
+### Fixes
+- **Dashboard fallback for legacy reminders**: When older parsed statements miss `remaining_value_try`, the UI now extracts the remaining points/miles amount from reminder text so balance cards still show values after reparse.
+- **Points section visibility**: “Puan / Mil Son Kullanım” section is now always rendered on the summary page and shows a clear empty-state message instead of disappearing.
+
+---
+
 ## [1.0.66] – 2026-04-04
 
 ### Fixes

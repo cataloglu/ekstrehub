@@ -149,6 +149,35 @@ function maskedCardLabel(cardNumber: string | null | undefined): string {
   return cardNumber;
 }
 
+function parseTrAmountFromText(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const s = raw.trim().replace(/\s+/g, "");
+  if (!s) return null;
+  let normalized = s;
+  if (normalized.includes(",") && normalized.includes(".")) {
+    if (normalized.lastIndexOf(",") > normalized.lastIndexOf(".")) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = normalized.replace(/,/g, "");
+    }
+  } else if (normalized.includes(",")) {
+    normalized = normalized.replace(/\./g, "").replace(",", ".");
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function fallbackRemainingValueTry(reminder: StatementReminder): number | null {
+  const hay = `${reminder.title ?? ""}\n${reminder.text ?? ""}`;
+  const m1 = hay.match(/(?:kalan|kullanmad[ıiğg]?[ıi]n[ıi]z)\s+([\d\.,]+)\s*TL/i);
+  if (m1?.[1]) return parseTrAmountFromText(m1[1]);
+  const m2 = hay.match(/([\d\.,]+)\s*TL[^\n]{0,70}(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|puan|mil)/i);
+  if (m2?.[1]) return parseTrAmountFromText(m2[1]);
+  const m3 = hay.match(/(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|puan|mil)[^\n]{0,70}([\d\.,]+)\s*TL/i);
+  if (m3?.[1]) return parseTrAmountFromText(m3[1]);
+  return null;
+}
+
 const NON_CARD_DOC_RX = /(işlem sonuç formu|yatırım|fon alış|fon satış|portföyden|hisse senedi|virman|dekont)/i;
 
 function isLikelyNonCardStatement(stmt: StatementItem): boolean {
@@ -1095,6 +1124,7 @@ export function App() {
     for (const s of statements) {
       for (const r of loyaltyReminders(s.statement_reminders)) {
         if (r.expires_on && reminderDeadlinePassed(r.expires_on)) continue;
+        const remainingValueTry = r.remaining_value_try ?? fallbackRemainingValueTry(r);
         rows.push({
           stmtId: s.id,
           bankName: s.bank_name,
@@ -1105,7 +1135,7 @@ export function App() {
           fileName: s.file_name,
           reminder: r,
           loyaltyProgram: loyaltyProgramOf(r),
-          remainingValueTry: r.remaining_value_try ?? null,
+          remainingValueTry,
         });
       }
     }
@@ -1479,8 +1509,7 @@ export function App() {
                 </section>
               )}
 
-              {activeDashboardReminders.length > 0 && (
-                <section className="section pointsReminderSection">
+              <section className="section pointsReminderSection">
                   <div className="sectionHeader pointsReminderSectionHeader">
                     <div>
                       <h2 className="sectionTitle">Puan / Mil Son Kullanım</h2>
@@ -1498,6 +1527,9 @@ export function App() {
                       Ekstreler →
                     </button>
                   </div>
+                  {activeDashboardReminders.length === 0 ? (
+                    <p className="muted">Puan/mil kaydı bulunamadı. Ekstreler için yeniden çöz çalıştır.</p>
+                  ) : (
                   <ul className="pointsReminderList">
                     {loyaltyBalances.items.length > 0 && (
                       <li className="pointsReminderRow pointsReminderRowPoints">
@@ -1580,8 +1612,8 @@ export function App() {
                       );
                     })}
                   </ul>
+                  )}
                 </section>
-              )}
 
               {bankSummaries.length > 0 ? (
                 <>

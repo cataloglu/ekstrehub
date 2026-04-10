@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.67 (2026-04-10)
+
+### Düzeltmeler
+- **Eski hatırlatmalar için UI fallback ayrıştırma**: Daha önce parse edilmiş ekstrelerde `remaining_value_try` boş olsa bile, arayüz hatırlatma metninden kalan puan/mil tutarını çıkarıp kart/program toplamlarında gösterir.
+- **Puan/mil bölümü görünürlüğü**: “Puan / Mil Son Kullanım” bölümü özet ekranında artık her zaman görünür; kayıt yoksa kaybolmak yerine açık bir boş durum mesajı gösterir.
+
+---
+
 ## 1.0.66 (2026-04-04)
 
 ### Düzeltmeler
