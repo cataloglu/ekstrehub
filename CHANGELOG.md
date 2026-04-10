@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.65] – 2026-04-04
+
+### Improvements
+- **Dashboard payment clarity**: Added a focused “Yaklaşan Son Ödemeler” section with per-card due date, total/minimum amount, and urgency highlighting, so upcoming obligations are readable at a glance.
+
+---
+
 ## [1.0.64] – 2026-04-04
 
 ### Features

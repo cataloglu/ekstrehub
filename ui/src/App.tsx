@@ -1375,8 +1375,10 @@ export function App() {
                   <p className="kpiLabel">Yaklaşan Ödeme</p>
                   {upcomingPayments.length > 0 ? (
                     <>
-                      <p className="kpiValue kpiSmall">{upcomingPayments[0].due_date}</p>
-                      <p className="kpiSub">{upcomingPayments[0].bank_name} · {daysUntil(upcomingPayments[0].due_date!)} gün kaldı</p>
+                      <p className="kpiValue kpiSmall">{upcomingPayments.length} kart</p>
+                      <p className="kpiSub">
+                        En yakın: {upcomingPayments[0].due_date} · {upcomingPayments[0].bank_name} · {daysUntil(upcomingPayments[0].due_date!)} gün
+                      </p>
                     </>
                   ) : (
                     <>
@@ -1422,6 +1424,60 @@ export function App() {
                   </div>
                 )}
               </div>
+
+              {upcomingPayments.length > 0 && (
+                <section className="section dueFocusSection">
+                  <div className="sectionHeader">
+                    <div>
+                      <h2 className="sectionTitle">Yaklaşan Son Ödemeler</h2>
+                      <p className="sectionSub">
+                        Önümüzdeki 30 gün içinde son ödeme tarihi yaklaşan kartlar.
+                      </p>
+                    </div>
+                    <button className="linkBtn" onClick={() => setActiveTab("statements")}>
+                      Ekstreler →
+                    </button>
+                  </div>
+                  <ul className="dueFocusList">
+                    {upcomingPayments.slice(0, 8).map((s) => {
+                      const days = daysUntil(s.due_date!);
+                      const urgent = days >= 0 && days <= 7;
+                      return (
+                        <li key={s.id} className={`dueFocusRow${urgent ? " dueFocusRowUrgent" : ""}`}>
+                          <div className="dueFocusMain">
+                            <div className="dueFocusTitleRow">
+                              <span className="stmtBankBadge">{s.bank_name ?? "—"}</span>
+                              <span className="dueFocusCard">{maskedCardLabel(s.card_number)}</span>
+                              <span className={`dueFocusDays${urgent ? " dueFocusDaysUrgent" : ""}`}>
+                                {days} gün
+                              </span>
+                            </div>
+                            <div className="dueFocusMeta">
+                              Son ödeme: <strong>{s.due_date}</strong>
+                              <span className="pointsReminderSep">·</span>
+                              Dönem: {s.period_start ?? "—"} — {s.period_end ?? "—"}
+                            </div>
+                          </div>
+                          <div className="dueFocusAmount">
+                            <div className="dueFocusTotal">{fmtTry(s.total_due_try)}</div>
+                            <div className="dueFocusMin">Min: {fmtTry(s.minimum_due_try)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            className="pointsReminderOpenBtn"
+                            onClick={() => {
+                              setActiveTab("statements");
+                              setExpandedStatementId(s.id);
+                            }}
+                          >
+                            Aç
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
 
               {activeDashboardReminders.length > 0 && (
                 <section className="section pointsReminderSection">

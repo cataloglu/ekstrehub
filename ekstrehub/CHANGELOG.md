@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.65 (2026-04-04)
+
+### İyileştirmeler
+- **Özet ekranı ödeme görünürlüğü**: “Yaklaşan Son Ödemeler” bölümü eklendi; kart bazında son ödeme tarihi, toplam/minimum tutar ve aciliyet vurgusu tek bakışta anlaşılır hale getirildi.
+
+---
+
 ## 1.0.64 (2026-04-04)
 
 ### Özellikler
