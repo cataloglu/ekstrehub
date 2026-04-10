@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.68] – 2026-04-10
+
+### Fixes
+- **Loyalty reminder visibility**: Dashboard no longer requires `kind=expiry` for points/miles reminders. Any reminder with loyalty cues, loyalty program, or remaining value is now shown in “Puan / Mil Son Kullanım”.
+
+---
+
 ## [1.0.67] – 2026-04-10
 
 ### Fixes

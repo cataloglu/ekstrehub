@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.68 (2026-04-10)
+
+### Düzeltmeler
+- **Puan/mil hatırlatma görünürlüğü**: Dashboard artık yalnızca `kind=expiry` kayıtlarına bağlı kalmaz. Sadakat programı ipucu, program adı veya kalan tutar içeren tüm puan/mil hatırlatmaları “Puan / Mil Son Kullanım” bölümünde listelenir.
+
+---
+
 ## 1.0.67 (2026-04-10)
 
 ### Düzeltmeler

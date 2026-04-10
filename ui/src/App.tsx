@@ -121,9 +121,10 @@ const LOYALTY_REMINDER_RX = /(pazarama|maximil|maximiles|maxipuan|bonus|puan|mil
 function loyaltyReminders(reminders: StatementReminder[] | undefined): StatementReminder[] {
   if (!reminders?.length) return [];
   return reminders.filter((r) => {
-    if (r.kind !== "expiry") return false;
     const hay = `${r.title ?? ""} ${r.text ?? ""}`;
-    return LOYALTY_REMINDER_RX.test(hay);
+    const hasProgram = Boolean((r.loyalty_program ?? "").trim());
+    const hasRemaining = typeof r.remaining_value_try === "number" && Number.isFinite(r.remaining_value_try) && r.remaining_value_try > 0;
+    return hasProgram || hasRemaining || LOYALTY_REMINDER_RX.test(hay);
   });
 }
 
