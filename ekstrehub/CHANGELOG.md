@@ -1,5 +1,12 @@
 # EkstreHub Changelog
 
+## 1.0.66 (2026-04-04)
+
+### Düzeltmeler
+- **Banka metin varyasyonlarına uygun puan/mil ayrıştırma**: Bozuk karakterli/encoding bozulmuş satırlarda da (`�`) kalan puan/mil değeri daha güvenilir yakalanır (`remaining_value_try`).
+
+---
+
 ## 1.0.65 (2026-04-04)
 
 ### İyileştirmeler

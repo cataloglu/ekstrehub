@@ -78,3 +78,14 @@ def test_points_expiry_prefers_year_end_deadline() -> None:
     assert len(reminders) == 1
     assert reminders[0]["kind"] == "expiry"
     assert reminders[0]["expires_on"] == "2025-12-31"
+
+
+def test_extract_loyalty_remaining_from_mojibake_text() -> None:
+    text = (
+        "2023 y�l�nda kazand���n�z Pazarama Puanlar�n�z�n kullan�m s�resi 31.12.2025 tarihinde sona ermektedir. "
+        "Hen�z kullanmad���n�z 13.28 TL Pazarama Puan'�n�z� 31 Aral�k 2025 tarihine kadar kullanman�z� �nemle hat�rlat�r�z."
+    )
+    reminders = extract_statement_reminders(text)
+    assert len(reminders) == 1
+    assert reminders[0]["remaining_value_try"] == 13.28
+    assert reminders[0]["loyalty_program"] == "Pazarama"

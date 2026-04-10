@@ -85,6 +85,11 @@ _LOYALTY_REMAINING_PATTERNS = (
         r"[^\n]{0,40}?([\d\.,]+)\s*tl",
         re.IGNORECASE,
     ),
+    re.compile(
+        r"([\d\.,]+)\s*tl[^\n]{0,40}?"
+        r"(pazarama\s+puan|maximil(?:es)?|maxipuan|mil(?:ler)?|puan(?:lar)?)",
+        re.IGNORECASE,
+    ),
 )
 
 
@@ -271,6 +276,15 @@ def _loyalty_program_name(text: str) -> str | None:
 def _extract_loyalty_remaining(text: str) -> tuple[str | None, float | None]:
     if not _LOYALTY_PROGRAM_CUE.search(text):
         return None, None
+    low = text.lower()
+    if not (
+        _EXPIRY_CUE.search(low)
+        or "sona erm" in low
+        or "kalan" in low
+        or "kullanmad" in low
+    ):
+        # Avoid picking statement debt amounts from generic card-header blocks.
+        return _loyalty_program_name(text), None
     program = _loyalty_program_name(text)
     for rx in _LOYALTY_REMAINING_PATTERNS:
         m = rx.search(text)

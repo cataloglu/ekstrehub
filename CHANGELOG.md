@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.66] – 2026-04-04
+
+### Fixes
+- **Bank-specific loyalty parsing hardening**: Improved points/miles amount extraction for existing statement text variants (including mojibake/encoding-corrupted lines), so `remaining_value_try` is captured more reliably from real PDFs.
+
+---
+
 ## [1.0.65] – 2026-04-04
 
 ### Improvements
