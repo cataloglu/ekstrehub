@@ -1,5 +1,16 @@
 # EkstreHub Changelog
 
+## 1.0.69 (2026-04-10)
+
+### İyileştirmeler
+- **Banka bazlı puan/mil ayrıştırma**: Hatırlatma ayrıştırıcısı `Bonus`, `Worldpuan`, `Chip-Para`, `ParafPara`, `CardFinans`, `Bankkart Lira` anahtarlarını banka metin varyasyonlarıyla birlikte tanıyacak şekilde genişletildi.
+- **Tutar yakalama doğruluğu**: Puan/mil bakiyesi için ek bağlam ve regex kalıpları eklendi; farklı cümle yapılarında (`kullanılabilir`, `değerinde`, `bakiyeniz`, `hesaplan`) kalan tutar yakalama oranı artırıldı.
+
+### Testler
+- `tests/test_statement_reminders.py` içine banka bazlı puan/mil programı ve tutar doğrulama testleri eklendi.
+
+---
+
 ## 1.0.68 (2026-04-10)
 
 ### Düzeltmeler

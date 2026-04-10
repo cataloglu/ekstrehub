@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.69] – 2026-04-10
+
+### Improvements
+- **Bank-specific loyalty parsing**: Expanded reminder extraction for bank-specific loyalty programs (`Bonus`, `Worldpuan`, `Chip-Para`, `ParafPara`, `CardFinans`, `Bankkart Lira`) and added additional amount/context patterns so reminder amounts are captured more reliably from real statement text.
+
+### Tests
+- Added coverage for bank-specific loyalty reminders and amount extraction in `tests/test_statement_reminders.py`.
+
+---
+
 ## [1.0.68] – 2026-04-10
 
 ### Fixes

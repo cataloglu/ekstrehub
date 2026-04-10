@@ -12,7 +12,8 @@ from typing import Any
 
 # Paragraphs matching any of these (case-insensitive) are candidate reminders
 _TRIGGER = re.compile(
-    r"(pazarama|maximil|maxipuan|puanlarınız|puanınız|kullanım\s+süresi|"
+    r"(pazarama|maximil|maxipuan|bonusflaş|bonus|worldpuan|world\s*puan|chip-?\s*para|paraf\s*para|"
+    r"cardfinans|bankkart\s*lira|puanlarınız|puanınız|kullanım\s+süresi|"
     r"sona\s+erm|hatırlat|hatirlat|mesajınız\s+var|mesajiniz\s+var|"
     r"\basgari\b|nakit\s+çekilemeyecek|nakit\s+cekilemeyecek|dönem\s+borcunuzun|donem\s+borcunuzun|"
     r"sözleşme\s+değişikliği|sozlesme\s+degisikligi|üstü\s+kalsın|ustu\s+kalsin|"
@@ -50,7 +51,8 @@ _DATE_TR_WORD = re.compile(
 )
 
 _POINTS_CUE = re.compile(
-    r"(pazarama|maximil|maxipuan|maximiles|maxi\s*miller|puan(?:lar[ıi]n[ıi]z)?|mil(?:ler)?)",
+    r"(pazarama|maximil|maxipuan|maximiles|maxi\s*miller|bonusflaş|bonus|worldpuan|world\s*puan|"
+    r"chip-?\s*para|paraf\s*para|cardfinans|bankkart\s*lira|puan(?:lar[ıi]n[ıi]z)?|mil(?:ler)?)",
     re.IGNORECASE,
 )
 _EXPIRY_CUE = re.compile(
@@ -73,21 +75,45 @@ _STRONG_NOTICE_CUE = re.compile(
     r"yuvarlama|pazarama|maximil|maxipuan|maximiles)",
     re.IGNORECASE,
 )
-_LOYALTY_PROGRAM_CUE = re.compile(r"(pazarama|maximil(?:es)?|maxipuan|puan|mil)", re.IGNORECASE)
+_LOYALTY_PROGRAM_CUE = re.compile(
+    r"(pazarama|maximil(?:es)?|maxipuan|bonusflaş|bonus|worldpuan|world\s*puan|chip-?\s*para|"
+    r"paraf\s*para|cardfinans|bankkart\s*lira|puan|mil)",
+    re.IGNORECASE,
+)
+_LOYALTY_AMOUNT_CONTEXT_CUE = re.compile(
+    r"(kullanmad|kalan|kullan[ıi]labilir|değerinde|degerinde|sona\s+erm|süresi|suresi|geçerli|gecerli|"
+    r"bakiye|bakiyeniz|hesaplan)",
+    re.IGNORECASE,
+)
 _LOYALTY_REMAINING_PATTERNS = (
     re.compile(
         r"(?:hen[üu]z\s+kullanmad[ıi][ğg]?[ıi]n[ıi]z|kalan)\s+([\d\.,]+)\s*tl\s+"
-        r"(pazarama\s+puan(?:[ıi]'?[ıi]n[ıi]z)?|maximil(?:es)?(?:'in)?|maxipuan(?:[ıi]'?[ıi]n[ıi]z)?|puan(?:lar[ıi]n[ıi]z)?|mil(?:ler)?)",
+        r"(pazarama\s+puan(?:[ıi]'?[ıi]n[ıi]z)?|maximil(?:es)?(?:'in)?|maxipuan(?:[ıi]'?[ıi]n[ıi]z)?|"
+        r"bonusfla[sş]|bonus|world\s*puan|worldpuan|chip-?\s*para|paraf\s*para|cardfinans|bankkart\s*lira|"
+        r"\bpuan(?:lar[ıi]n[ıi]z)?\b|\bmil(?:ler)?\b)",
         re.IGNORECASE,
     ),
     re.compile(
-        r"(pazarama\s+puan(?:[ıi]'?[ıi]n[ıi]z)?|maximil(?:es)?(?:'in)?|maxipuan(?:[ıi]'?[ıi]n[ıi]z)?|puan(?:lar[ıi]n[ıi]z)?|mil(?:ler)?)"
+        r"(pazarama\s+puan(?:[ıi]'?[ıi]n[ıi]z)?|maximil(?:es)?(?:'in)?|maxipuan(?:[ıi]'?[ıi]n[ıi]z)?|"
+        r"bonusfla[sş]|bonus|world\s*puan|worldpuan|chip-?\s*para|paraf\s*para|cardfinans|bankkart\s*lira|"
+        r"\bpuan(?:lar[ıi]n[ıi]z)?\b|\bmil(?:ler)?\b)"
         r"[^\n]{0,40}?([\d\.,]+)\s*tl",
         re.IGNORECASE,
     ),
     re.compile(
         r"([\d\.,]+)\s*tl[^\n]{0,40}?"
-        r"(pazarama\s+puan|maximil(?:es)?|maxipuan|mil(?:ler)?|puan(?:lar)?)",
+        r"(pazarama\s+puan|maximil(?:es)?|maxipuan|bonusfla[sş]|bonus|world\s*puan|worldpuan|"
+        r"chip-?\s*para|paraf\s*para|cardfinans|bankkart\s*lira|\bmil(?:ler)?\b|\bpuan(?:lar)?\b)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(bonusfla[sş]|bonus|world\s*puan|worldpuan|chip-?\s*para|paraf\s*para|cardfinans|bankkart\s*lira)"
+        r"[^\n]{0,70}?([\d\.,]+)\s*tl",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"([\d\.,]+)\s*tl[^\n]{0,70}?"
+        r"(bonusfla[sş]|bonus|world\s*puan|worldpuan|chip-?\s*para|paraf\s*para|cardfinans|bankkart\s*lira)",
         re.IGNORECASE,
     ),
 )
@@ -199,6 +225,18 @@ def _title_for(text: str, kind: str) -> str:
         return "Pazarama puanı"
     if "maximil" in low or "maxipuan" in low or "maxi miller" in low:
         return "MaxiMil / MaxiPuan"
+    if "bonusflaş" in low or "bonusflas" in low or "bonus" in low:
+        return "Bonus"
+    if "worldpuan" in low or "world puan" in low:
+        return "Worldpuan"
+    if "chip-para" in low or "chip para" in low:
+        return "Chip-Para"
+    if "paraf para" in low or "parafpara" in low:
+        return "ParafPara"
+    if "cardfinans" in low:
+        return "CardFinans"
+    if "bankkart lira" in low:
+        return "Bankkart Lira"
     if kind == "legal_warning":
         return "Ödeme / limit uyarısı"
     if kind == "contract":
@@ -266,6 +304,18 @@ def _loyalty_program_name(text: str) -> str | None:
         return "MaxiMil"
     if "maxipuan" in low:
         return "MaxiPuan"
+    if "bonusflaş" in low or "bonusflas" in low or "bonus" in low:
+        return "Bonus"
+    if "worldpuan" in low or "world puan" in low:
+        return "Worldpuan"
+    if "chip-para" in low or "chip para" in low:
+        return "Chip-Para"
+    if "paraf para" in low or "parafpara" in low:
+        return "ParafPara"
+    if "cardfinans" in low:
+        return "CardFinans"
+    if "bankkart lira" in low:
+        return "Bankkart Lira"
     if "mil" in low:
         return "Mil"
     if "puan" in low:
@@ -279,6 +329,7 @@ def _extract_loyalty_remaining(text: str) -> tuple[str | None, float | None]:
     low = text.lower()
     if not (
         _EXPIRY_CUE.search(low)
+        or _LOYALTY_AMOUNT_CONTEXT_CUE.search(low)
         or "sona erm" in low
         or "kalan" in low
         or "kullanmad" in low

@@ -89,3 +89,17 @@ def test_extract_loyalty_remaining_from_mojibake_text() -> None:
     assert len(reminders) == 1
     assert reminders[0]["remaining_value_try"] == 13.28
     assert reminders[0]["loyalty_program"] == "Pazarama"
+
+
+def test_extract_bank_specific_loyalty_programs() -> None:
+    samples = [
+        ("Bonus programınız kapsamında kullanılabilir 45,60 TL değerinde Bonus bakiyeniz bulunmaktadır.", "Bonus", 45.60),
+        ("Worldpuan bakiyeniz 128,75 TL olup kampanyalarda geçerlidir.", "Worldpuan", 128.75),
+        ("Kalan 32,10 TL Chip-Para tutarınızı ay sonuna kadar kullanabilirsiniz.", "Chip-Para", 32.10),
+        ("Paraf Para bakiyeniz 21.40 TL olarak hesaplanmıştır.", "ParafPara", 21.40),
+    ]
+    for text, expected_program, expected_amount in samples:
+        reminders = extract_statement_reminders(text)
+        assert len(reminders) == 1
+        assert reminders[0].get("loyalty_program") == expected_program
+        assert reminders[0].get("remaining_value_try") == expected_amount
