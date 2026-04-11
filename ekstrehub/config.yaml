@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: "EkstreHub"
-version: "1.0.77"
+version: "1.0.78"
 slug: "ekstrehub"
 description: "Kredi kartı ekstrelerini Gmail'den otomatik çeker, AI ile parse eder ve analiz eder. DenizBank, İş Bankası, Garanti, Yapı Kredi destekli."
 url: "https://github.com/cataloglu/ekstrehub/tree/master/ekstrehub"

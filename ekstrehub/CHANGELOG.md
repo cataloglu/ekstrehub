@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.78 (2026-04-11)
+
+### Düzeltmeler
+- **Ücret sınıflandırması düzeltildi**: MetLife Emeklilik gibi sigorta/emeklilik ödemeleri artık banka ücreti/aidat olarak işaretlenmez.
+- **Kategori tutarlılığı**: Sigorta/emeklilik anahtarları tek listede toplanarak yalnızca `Emeklilik/Sigorta` kategorisine yönlendirildi.
+
+---
+
 ## 1.0.77 (2026-04-11)
 
 ### İyileştirmeler

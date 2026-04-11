@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.78] – 2026-04-11
+
+### Fixes
+- **Fee classification correction**: Insurance/pension transactions (e.g. MetLife Emeklilik) are no longer flagged as bank fee rows.
+- **Category consistency**: Insurance-related keywords were centralized and mapped to `Emeklilik/Sigorta` category only.
+
+---
+
 ## [1.0.77] – 2026-04-11
 
 ### Improvements

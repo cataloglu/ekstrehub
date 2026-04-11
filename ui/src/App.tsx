@@ -958,6 +958,24 @@ export function App() {
       .toLowerCase();
 
   // Fee detection — keywords covering all Turkish bank statement fee types
+  const INSURANCE_KEYWORDS = [
+    "sigorta",
+    "ferdi kaza",
+    "hayat sigorta",
+    "emeklilik",
+    "metlife",
+    "viennalife",
+    "anadolu hayat",
+    "sompo",
+    "ray sigorta",
+    "turkiye sigorta",
+    "türkiye sigorta",
+    "allianz",
+    "axa",
+    "groupama",
+    "ergo",
+  ];
+
   const FEE_KEYWORDS = [
     // ── Aidat / Yıllık ücret ──────────────────────────────────────────────────
     "aidat",
@@ -983,11 +1001,6 @@ export function App() {
     // ── SMS / Bildirim ────────────────────────────────────────────────────────
     "sms",
     "bildirim ücreti", "bildirim ucreti",
-    // ── Sigorta / Emeklilik ──────────────────────────────────────────────────
-    "sigorta",         // Türkiye Sigorta, Sompo Sigorta, Ray Sigorta…
-    "ferdi kaza",
-    "hayat sigorta",
-    "emeklilik",       // MetLife Emeklilik, Anadolu Hayat Emeklilik, Garanti BBVA Emeklilik…
     // ── Ek kart ──────────────────────────────────────────────────────────────
     "ek kart",
     // ── Yurt dışı / kur farkı ────────────────────────────────────────────────
@@ -999,7 +1012,13 @@ export function App() {
   ];
 
   // Use Turkish-aware lowercase so İ/I are handled correctly
+  function isInsurancePayment(description: string): boolean {
+    const d = trLower(description);
+    return INSURANCE_KEYWORDS.some((kw) => d.includes(trLower(kw)));
+  }
+
   function isFee(description: string): boolean {
+    if (isInsurancePayment(description)) return false;
     const d = trLower(description);
     return FEE_KEYWORDS.some((kw) => d.includes(trLower(kw)));
   }
@@ -1067,7 +1086,7 @@ export function App() {
       keywords: ["nakit avans", "nakitavans"] },
     // ── Sigorta / Emeklilik ──────────────────────────────────────────────────
     { name: "Emeklilik/Sigorta",  icon: "🛡", color: "#a78bfa",
-      keywords: ["sigorta", "emeklilik", "metlife", "viennalife", "anadolu hayat", "sompo", "ray sigorta", "turkiye sigorta", "türkiye sigorta", "allianz", "axa", "groupama", "ergo", "ferdi kaza"] },
+      keywords: INSURANCE_KEYWORDS },
     // ── Ödemeler ─────────────────────────────────────────────────────────────
     { name: "Vergi",              icon: "🏛", color: "#94a3b8",
       keywords: ["vergi daire", "vergi dai", "gelir idaresi"] },
