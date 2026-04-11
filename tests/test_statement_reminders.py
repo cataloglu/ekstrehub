@@ -111,3 +111,15 @@ def test_extract_non_tl_miles_balance() -> None:
     assert len(reminders) == 1
     assert reminders[0].get("loyalty_program") == "MaxiMil"
     assert reminders[0].get("remaining_value_try") == 12450.0
+
+
+def test_legal_warning_does_not_fake_mil_program() -> None:
+    text = (
+        "Bir takvim yılı içinde asgari tutardan az ödeme yapılması halinde "
+        "kartınız ile nakit çekilemeyecek ve diğer kartlar için limit artışı yapılamayacaktır."
+    )
+    reminders = extract_statement_reminders(text)
+    assert len(reminders) == 1
+    assert reminders[0].get("kind") == "legal_warning"
+    assert reminders[0].get("loyalty_program") is None
+    assert reminders[0].get("remaining_value_try") is None

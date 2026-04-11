@@ -116,15 +116,22 @@ function reminderDeadlinePassed(expiresOn: string | null | undefined): boolean {
   return end < new Date();
 }
 
-const LOYALTY_REMINDER_RX = /(pazarama|maximil|maximiles|maxipuan|bonus|puan|mil|sadakat)/i;
+const LOYALTY_REMINDER_RX =
+  /(pazarama|maximil|maximiles|maxipuan|bonusflaş|bonus|world\s*puan|worldpuan|chip-?para|paraf\s*para|cardfinans|bankkart\s*lira|sadakat|\bpuan(?:lar)?\b|\bmil(?:ler)?\b)/i;
+const LOYALTY_VALUE_CONTEXT_RX = /(kalan|kullan[ıi]labilir|toplam|mevcut|biriken|süresi|sona\s*erm|bakiy)/i;
+const SPECIFIC_LOYALTY_PROGRAM_RX =
+  /^(pazarama|maximil|maximiles|maxipuan|bonus|worldpuan|chip-para|parafpara|cardfinans|bankkart lira)$/i;
 
 function loyaltyReminders(reminders: StatementReminder[] | undefined): StatementReminder[] {
   if (!reminders?.length) return [];
   return reminders.filter((r) => {
     const hay = `${r.title ?? ""} ${r.text ?? ""}`;
-    const hasProgram = Boolean((r.loyalty_program ?? "").trim());
+    const programRaw = (r.loyalty_program ?? "").trim();
+    const hasSpecificProgram = SPECIFIC_LOYALTY_PROGRAM_RX.test(programRaw);
     const hasRemaining = typeof r.remaining_value_try === "number" && Number.isFinite(r.remaining_value_try) && r.remaining_value_try > 0;
-    return hasProgram || hasRemaining || LOYALTY_REMINDER_RX.test(hay);
+    const hasLoyaltyKeyword = LOYALTY_REMINDER_RX.test(hay);
+    const hasValueContext = LOYALTY_VALUE_CONTEXT_RX.test(hay);
+    return hasSpecificProgram || hasRemaining || (hasLoyaltyKeyword && hasValueContext);
   });
 }
 

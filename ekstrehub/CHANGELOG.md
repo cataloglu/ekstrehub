@@ -1,5 +1,16 @@
 # EkstreHub Changelog
 
+## 1.0.71 (2026-04-10)
+
+### Düzeltmeler
+- **Puan/mil false-positive temizliği**: `mil`/`puan` tespitinde kelime sınırı kuralı eklendi; hukuki uyarı metinleri artık yanlışlıkla sadakat programı olarak işaretlenmez.
+- **Özet ekranı filtre sertleştirme**: “Puan / Mil Son Kullanım” listesi artık sadece gerçek sadakat sinyali olan kayıtları gösterir (spesifik program, sayısal bakiye veya güçlü sadakat+değer bağlamı).
+
+### Testler
+- Hukuki uyarı metninin sahte `Mil` programı üretmemesini doğrulayan regresyon testi eklendi.
+
+---
+
 ## 1.0.70 (2026-04-10)
 
 ### Düzeltmeler

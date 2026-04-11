@@ -77,7 +77,7 @@ _STRONG_NOTICE_CUE = re.compile(
 )
 _LOYALTY_PROGRAM_CUE = re.compile(
     r"(pazarama|maximil(?:es)?|maxipuan|bonusflaş|bonus|worldpuan|world\s*puan|chip-?\s*para|"
-    r"paraf\s*para|cardfinans|bankkart\s*lira|puan|mil)",
+    r"paraf\s*para|cardfinans|bankkart\s*lira|\bpuan(?:lar)?\b|\bmil(?:ler)?\b)",
     re.IGNORECASE,
 )
 _LOYALTY_AMOUNT_CONTEXT_CUE = re.compile(
@@ -335,9 +335,9 @@ def _loyalty_program_name(text: str) -> str | None:
         return "CardFinans"
     if "bankkart lira" in low:
         return "Bankkart Lira"
-    if "mil" in low:
+    if re.search(r"\bmil(?:ler)?\b", low):
         return "Mil"
-    if "puan" in low:
+    if re.search(r"\bpuan(?:lar)?\b", low):
         return "Puan"
     return None
 

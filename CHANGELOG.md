@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.71] – 2026-04-10
+
+### Fixes
+- **False positive cleanup in loyalty cards**: Tightened `mil/puan` detection with word-boundary matching so legal-warning text is no longer misclassified as loyalty reminder rows.
+- **Dashboard loyalty filter hardening**: Summary now lists loyalty rows only when there is a specific loyalty program, a numeric remaining value, or both loyalty keyword + value context together.
+
+### Tests
+- Added regression coverage to ensure legal warning text does not produce fake `Mil` program output.
+
+---
+
 ## [1.0.70] – 2026-04-10
 
 ### Fixes
