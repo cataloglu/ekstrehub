@@ -5,6 +5,7 @@ import email as email_lib
 import imaplib
 import json
 import logging
+import time
 from typing import Any
 
 from sqlalchemy import select
@@ -29,6 +30,10 @@ from app.ingestion.statement_parser import (
 import app.app_settings as app_settings_module
 
 log = logging.getLogger(__name__)
+
+# Reparse safety guard: keep CPU usage stable on HA boxes.
+_REPARSE_HARD_MAX_DOCS = 12
+_REPARSE_COOLDOWN_SECONDS = 1.2
 
 # Try primary mailbox first, then common Gmail folders (same idea as scripts/reparse_failed.py)
 _FALLBACK_MAILBOXES = (
@@ -350,7 +355,9 @@ def _run_batch_reparse_locked(scope: str, doc_ids: list[int], max_docs: int = 40
     session_factory = get_session_factory()
     with session_factory() as session:
         ids = collect_doc_ids_for_scope(session, scope, doc_ids)
-        ids = ids[:max_docs]
+        requested_total = len(ids)
+        cap = min(max_docs, _REPARSE_HARD_MAX_DOCS)
+        ids = ids[:cap]
 
     if not ids:
         return {"ok": True, "processed": 0, "skipped": 0, "results": [], "message": "Uygun PDF ekstre bulunamadı."}
@@ -393,6 +400,8 @@ def _run_batch_reparse_locked(scope: str, doc_ids: list[int], max_docs: int = 40
                     except Exception as exc:
                         log.exception("reparse doc %s", doc.id)
                         results.append({"doc_id": doc.id, "ok": False, "error": str(exc)})
+                    # Short cooldown to avoid pegging CPU for long batches.
+                    time.sleep(_REPARSE_COOLDOWN_SECONDS)
         finally:
             try:
                 mail.logout()
@@ -414,10 +423,19 @@ def _run_batch_reparse_locked(scope: str, doc_ids: list[int], max_docs: int = 40
                 results.append({"doc_id": doc_id, "ok": False, "error": "email_or_account_missing"})
 
     ok_n = sum(1 for r in results if r.get("ok"))
+    skipped_by_cap = max(0, requested_total - len(ids))
+    message = None
+    if skipped_by_cap > 0:
+        message = (
+            f"CPU koruması nedeniyle bu turda en fazla {len(ids)} PDF işlendi; "
+            f"kalan {skipped_by_cap} PDF için yeniden çalıştırabilirsiniz."
+        )
     return {
         "ok": True,
         "processed": len(results),
         "succeeded": ok_n,
         "failed": len(results) - ok_n,
+        "skipped": skipped_by_cap,
+        "message": message,
         "results": results,
     }

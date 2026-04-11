@@ -1,5 +1,24 @@
 # EkstreHub Changelog
 
+## 1.0.74 (2026-04-11)
+
+### Düzeltmeler
+- **Harcanabilir bakiye fallback ayrıştırma**: Son kullanım cümlesi olmasa bile “harcanılabilir / kullanılabilir / bakiye” satırlarından puan-mil bakiyesi çıkarılır.
+- **Yanlış/çift kayıt azaltma**: Bakiye satırı regex aralığı daraltıldı, tekrar eden satırlar metin bazlı dedupe ile tekilleştirildi; tarih/yıl sayılarının bakiye diye yakalanması engellendi.
+
+### Testler
+- `tests/test_statement_reminders.py` içine expiry içermeyen harcanabilir bakiye satırı testi eklendi.
+
+---
+
+## 1.0.73 (2026-04-10)
+
+### Düzeltmeler
+- **Yeniden çöz CPU koruması**: PDF reparse toplu çalıştırmada tek tur için sıkı üst sınır ve belge başına kısa bekleme eklendi; HA üzerinde CPU’nun sürekli tavana vurması engellendi.
+- **Toplu işlem geri bildirimi**: API artık CPU koruması nedeniyle bekleyen belge sayısını `skipped` alanında döner.
+
+---
+
 ## 1.0.72 (2026-04-10)
 
 ### İyileştirmeler

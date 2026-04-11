@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.74] – 2026-04-11
+
+### Fixes
+- **Spendable loyalty balance fallback**: Statement reminder extraction now captures direct balance lines (e.g. “harcanılabilir ... bakiyeniz ...”) even when no explicit expiry notice exists.
+- **False matches reduced**: Tightened balance-line regex windows and deduping to avoid duplicate rows and accidental year/date numbers being parsed as loyalty balances.
+
+### Tests
+- Added coverage for extracting spendable balance lines without expiry phrases in `tests/test_statement_reminders.py`.
+
+---
+
+## [1.0.73] – 2026-04-10
+
+### Fixes
+- **Reparse CPU guard**: Added a hard per-run cap and small per-document cooldown for PDF reparse batches, preventing sustained CPU saturation on Home Assistant hosts.
+- **Clear batch feedback**: Reparse API now reports how many documents were skipped by the CPU guard so users can continue in the next run intentionally.
+
+---
+
 ## [1.0.72] – 2026-04-10
 
 ### Improvements

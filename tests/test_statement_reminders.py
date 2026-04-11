@@ -123,3 +123,11 @@ def test_legal_warning_does_not_fake_mil_program() -> None:
     assert reminders[0].get("kind") == "legal_warning"
     assert reminders[0].get("loyalty_program") is None
     assert reminders[0].get("remaining_value_try") is None
+
+
+def test_extract_spendable_balance_line_without_expiry_notice() -> None:
+    text = "Harcanılabilir MaxiMil bakiyeniz 12.450 adettir."
+    reminders = extract_statement_reminders(text)
+    assert len(reminders) == 1
+    assert reminders[0].get("loyalty_program") == "MaxiMil"
+    assert reminders[0].get("remaining_value_try") == 12450.0

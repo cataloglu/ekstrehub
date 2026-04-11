@@ -82,8 +82,32 @@ _LOYALTY_PROGRAM_CUE = re.compile(
 )
 _LOYALTY_AMOUNT_CONTEXT_CUE = re.compile(
     r"(kullanmad|kalan|kullan[ıi]labilir|değerinde|degerinde|sona\s+erm|süresi|suresi|geçerli|gecerli|"
-    r"bakiye|bakiyeniz|hesaplan|toplam|mevcut|kazan[ıi]lan|biriken)",
+    r"bakiye|bakiyeniz|hesaplan|toplam|mevcut|kazan[ıi]lan|biriken|harcan[ıi]labilir)",
     re.IGNORECASE,
+)
+_LOYALTY_BALANCE_LINE_CONTEXT = re.compile(
+    r"(harcan[ıi]labilir|kullan[ıi]labilir|kalan|toplam|mevcut|biriken|bakiye|bakiyeniz|"
+    r"sadakat|puan|mil|bonus|world|chip|paraf|maxi)",
+    re.IGNORECASE,
+)
+_LOYALTY_BALANCE_LINE_PATTERNS = (
+    re.compile(
+        r"(pazarama|maximil(?:es)?|maxipuan|bonusfla[sş]|bonus|world\s*puan|worldpuan|chip-?\s*para|"
+        r"paraf\s*para|cardfinans|bankkart\s*lira|\bpuan(?:lar)?\b|\bmil(?:ler)?\b)"
+        r"[^\n]{0,35}?"
+        r"(?:bakiye|bakiyeniz|kalan|kullan[ıi]labilir|harcan[ıi]labilir|toplam|mevcut|biriken)"
+        r"[^\n]{0,20}?"
+        r"([\d\.,]+)\s*(?:tl|try|adet)?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:bakiye|bakiyeniz|kalan|kullan[ıi]labilir|harcan[ıi]labilir|toplam|mevcut|biriken)"
+        r"[^\n]{0,20}?"
+        r"([\d\.,]+)\s*(?:tl|try|adet)?\b[^\n]{0,20}?"
+        r"(pazarama|maximil(?:es)?|maxipuan|bonusfla[sş]|bonus|world\s*puan|worldpuan|chip-?\s*para|"
+        r"paraf\s*para|cardfinans|bankkart\s*lira|\bpuan(?:lar)?\b|\bmil(?:ler)?\b)",
+        re.IGNORECASE,
+    ),
 )
 _LOYALTY_REMAINING_PATTERNS = (
     re.compile(
@@ -374,6 +398,54 @@ def _extract_loyalty_remaining(text: str) -> tuple[str | None, float | None]:
     return program, None
 
 
+def _extract_loyalty_balance_lines(text: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen_keys: set[str] = set()
+    for raw_line in text.split("\n"):
+        line = re.sub(r"\s+", " ", raw_line).strip()
+        if len(line) < 14 or len(line) > 220:
+            continue
+        if not _LOYALTY_PROGRAM_CUE.search(line):
+            continue
+        if not _LOYALTY_BALANCE_LINE_CONTEXT.search(line):
+            continue
+        if _NON_EXPIRY_DATE_CUE.search(line):
+            continue
+        program = _loyalty_program_name(line)
+        amount: float | None = None
+        for rx in _LOYALTY_BALANCE_LINE_PATTERNS:
+            m = rx.search(line)
+            if not m:
+                continue
+            g1, g2 = m.groups()
+            if _parse_tr_amount(g1) is not None:
+                amount = _parse_tr_amount(g1)
+                program = _loyalty_program_name(g2) or program
+            else:
+                amount = _parse_tr_amount(g2)
+                program = _loyalty_program_name(g1) or program
+            if amount is not None:
+                break
+        if program is None or amount is None or amount <= 0:
+            continue
+        key = f"{program}|{amount:.2f}|{line.lower()[:80]}"
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        title = f"{program} bakiyesi"
+        out.append(
+            {
+                "title": title,
+                "text": line[:4000],
+                "kind": "info",
+                "expires_on": None,
+                "loyalty_program": program,
+                "remaining_value_try": amount,
+            }
+        )
+    return out
+
+
 def _split_into_notice_blocks(text: str) -> list[str]:
     """Split dense PDF text (mostly single \\n) into separate notices."""
     lines = text.split("\n")
@@ -489,6 +561,15 @@ def extract_statement_reminders(text: str) -> list[dict[str, Any]]:
             "loyalty_program": loyalty_program,
             "remaining_value_try": remaining_value_try,
         }
+        reminders.append(item)
+
+    # Fallback path: directly capture explicit spendable loyalty balance lines.
+    for item in _extract_loyalty_balance_lines(raw):
+        norm = re.sub(r"\s+", " ", str(item.get("text", ""))).strip().lower()
+        digest = hashlib.sha256(norm.encode("utf-8", errors="ignore")).hexdigest()[:16]
+        if digest in seen:
+            continue
+        seen.add(digest)
         reminders.append(item)
 
     return reminders
