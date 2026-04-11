@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.75 (2026-04-11)
+
+### Düzeltmeler
+- **Son bilinen puan/mil bakiyesi gösterimi**: Özet ekranındaki banka/program bazlı bakiye kartları artık yalnızca aktif son tarihli satırlardan değil, ekstrelerden çıkarılmış tüm puan/mil satırlarından beslenir.
+- **Metin netliği**: Bölüm açıklaması “güncel” yerine “son bilinen” olarak güncellendi.
+
+---
+
 ## 1.0.74 (2026-04-11)
 
 ### Düzeltmeler

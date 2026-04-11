@@ -1168,6 +1168,49 @@ export function App() {
     return rows;
   }, [statements]);
 
+  // Same data as activeDashboardReminders but keeps expired rows for "last known balance" view.
+  const allDashboardLoyaltyRows = useMemo(() => {
+    type Row = {
+      stmtId: number;
+      bankName: string | null;
+      cardNumber: string | null;
+      periodLabel: string;
+      periodEnd: string | null;
+      createdAt: string | null;
+      fileName: string;
+      reminder: StatementReminder;
+      loyaltyProgram: string;
+      remainingValueTry: number | null;
+    };
+    const rows: Row[] = [];
+    for (const s of statements) {
+      for (const r of loyaltyReminders(s.statement_reminders)) {
+        const remainingValueTry = r.remaining_value_try ?? fallbackRemainingValueTry(r);
+        rows.push({
+          stmtId: s.id,
+          bankName: s.bank_name,
+          cardNumber: s.card_number,
+          periodLabel: `${s.period_start ?? "—"} — ${s.period_end ?? "—"}`,
+          periodEnd: s.period_end,
+          createdAt: s.created_at,
+          fileName: s.file_name,
+          reminder: r,
+          loyaltyProgram: loyaltyProgramOf(r),
+          remainingValueTry,
+        });
+      }
+    }
+    rows.sort((a, b) => {
+      const ea = a.reminder.expires_on;
+      const eb = b.reminder.expires_on;
+      if (ea && !eb) return -1;
+      if (!ea && eb) return 1;
+      if (ea && eb) return ea.localeCompare(eb);
+      return a.reminder.title.localeCompare(b.reminder.title, "tr");
+    });
+    return rows;
+  }, [statements]);
+
   const loyaltyBalances = useMemo(() => {
     type Bal = {
       key: string;
@@ -1181,7 +1224,7 @@ export function App() {
       createdAt: string | null;
     };
     const byKey = new Map<string, Bal>();
-    for (const row of activeDashboardReminders) {
+    for (const row of allDashboardLoyaltyRows) {
       if (row.remainingValueTry == null || row.remainingValueTry <= 0) continue;
       const key = `${row.bankName ?? ""}|${row.cardNumber ?? ""}|${row.loyaltyProgram}`;
       const prev = byKey.get(key);
@@ -1212,7 +1255,7 @@ export function App() {
     });
     const totalTry = items.reduce((sum, x) => sum + x.remainingValueTry, 0);
     return { items, totalTry };
-  }, [activeDashboardReminders]);
+  }, [allDashboardLoyaltyRows]);
 
   const loyaltyBankProgramBalances = useMemo(() => {
     type Group = {
@@ -1569,7 +1612,7 @@ export function App() {
                 <div className="sectionHeader pointsReminderSectionHeader">
                   <div>
                     <h2 className="sectionTitle">Harcanabilir Puan / Mil Bakiyesi</h2>
-                    <p className="sectionSub">Banka ve program bazında güncel kalan bakiye.</p>
+                    <p className="sectionSub">Banka ve program bazında son bilinen kalan bakiye (ekstrelerden).</p>
                   </div>
                   <button
                     type="button"
@@ -1597,7 +1640,7 @@ export function App() {
                           <div className="pointsReminderMeta">
                             <span className="pointsReminderBank">{row.cardCount} kart</span>
                             <span className="pointsReminderSep">·</span>
-                            <span className="pointsReminderPeriod">Harcanabilir toplam bakiye</span>
+                            <span className="pointsReminderPeriod">Son bilinen harcanabilir toplam bakiye</span>
                           </div>
                         </div>
                       </li>

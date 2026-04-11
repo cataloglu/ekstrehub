@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.75] – 2026-04-11
+
+### Fixes
+- **Show last known loyalty balances**: Dashboard loyalty balance cards now aggregate from all extracted loyalty rows (including past-expiry reminders), so historical statements still produce per-bank/per-program balances when IMAP reparse is no longer possible.
+- **Balance section wording**: Updated section copy to explicitly indicate “last known” balance from parsed statements.
+
+---
+
 ## [1.0.74] – 2026-04-11
 
 ### Fixes
