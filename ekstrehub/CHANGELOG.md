@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.79 (2026-04-11)
+
+### Düzeltmeler
+- **Tek kartta çift puan/mil kartı temizliği**: Aynı banka+kart+tutar için spesifik program (`Worldpuan` vb.) varsa genel `Puan/Mil` kartı gizlenir.
+- **Banka bazlı özet sadeleşti**: Aynı bakiyeyi iki kez gösteren kartlar engellendi.
+
+---
+
 ## 1.0.78 (2026-04-11)
 
 ### Düzeltmeler

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.79] – 2026-04-11
+
+### Fixes
+- **Duplicate loyalty cards removed**: When the same bank+card has a specific loyalty program and a generic `Puan/Mil` row with the same amount, dashboard now keeps only the specific program card.
+- **Cleaner bank/program summary**: Prevents duplicate cards like `Worldpuan` + `Puan` for identical balance on the same card.
+
+---
+
 ## [1.0.78] – 2026-04-11
 
 ### Fixes

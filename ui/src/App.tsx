@@ -1276,7 +1276,28 @@ export function App() {
       const nextRank = nextVal.periodEnd ?? nextVal.createdAt ?? "";
       if (nextRank > prevRank) byKey.set(key, nextVal);
     }
-    const items = Array.from(byKey.values()).sort((a, b) => {
+    let items = Array.from(byKey.values());
+
+    // If the same card has both a specific program and generic "Puan/Mil"
+    // with the same balance, keep the specific program only.
+    const hasSpecificBySignature = new Set<string>();
+    for (const it of items) {
+      const prog = (it.loyaltyProgram || "").trim().toLowerCase();
+      const isGeneric = prog === "puan" || prog === "mil";
+      if (isGeneric) continue;
+      const amountSig = (Math.round(it.remainingValueTry * 100) / 100).toFixed(2);
+      hasSpecificBySignature.add(`${it.bankName ?? ""}|${it.cardNumber ?? ""}|${amountSig}`);
+    }
+    items = items.filter((it) => {
+      const prog = (it.loyaltyProgram || "").trim().toLowerCase();
+      const isGeneric = prog === "puan" || prog === "mil";
+      if (!isGeneric) return true;
+      const amountSig = (Math.round(it.remainingValueTry * 100) / 100).toFixed(2);
+      const sig = `${it.bankName ?? ""}|${it.cardNumber ?? ""}|${amountSig}`;
+      return !hasSpecificBySignature.has(sig);
+    });
+
+    items = items.sort((a, b) => {
       if ((a.expiresOn ?? "") !== (b.expiresOn ?? "")) {
         return (a.expiresOn ?? "9999-12-31").localeCompare(b.expiresOn ?? "9999-12-31");
       }
