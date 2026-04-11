@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.76 (2026-04-11)
+
+### Düzeltmeler
+- **Fallback false-positive azaltma**: Özet ekranındaki puan/mil fallback ayrıştırması, hesap özeti borç alanlarını (`dönem borcu`, `asgari`, `son ödeme`, `hesap özeti`) bakiye olarak okumaz.
+- **Daha güvenli pattern seti**: Program→sayı eşleştirmesinde fazla geniş kalıp kaldırıldı; sadece bakiye bağlamı olan kalıplar bırakıldı.
+
+---
+
 ## 1.0.75 (2026-04-11)
 
 ### Düzeltmeler

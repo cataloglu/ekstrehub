@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.76] – 2026-04-11
+
+### Fixes
+- **Loyalty fallback false-positive reduction**: Tightened dashboard fallback extraction to avoid reading statement header debt fields (`dönem borcu`, `asgari`, `son ödeme`, `hesap özeti`) as points/miles balance.
+- **Safer non-TL fallback**: Removed overly broad program→number pattern and kept only context-bound balance patterns.
+
+---
+
 ## [1.0.75] – 2026-04-11
 
 ### Fixes

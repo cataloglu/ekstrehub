@@ -179,6 +179,11 @@ function parseTrAmountFromText(raw: string | null | undefined): number | null {
 
 function fallbackRemainingValueTry(reminder: StatementReminder): number | null {
   const hay = `${reminder.title ?? ""}\n${reminder.text ?? ""}`;
+  const low = hay.toLowerCase();
+  const headerCue = /(hesap\s+kesim|son\s+ödeme|son\s+odeme|dönem\s+borcu|donem\s+borcu|asgari|hesap\s+özet|hesap\s+ozet)/i;
+  const balanceCue =
+    /(kalan|kullanmad[ıiğg]?[ıi]n[ıi]z|kullan[ıi]labilir|harcan[ıi]labilir|bakiyeniz|bakiye|kullanım\s+süresi|kullanim\s+suresi|sona\s+erm)/i;
+  if (headerCue.test(low) && !balanceCue.test(low)) return null;
   const m1 = hay.match(/(?:kalan|kullanmad[ıiğg]?[ıi]n[ıi]z)\s+([\d\.,]+)\s*TL/i);
   if (m1?.[1]) return parseTrAmountFromText(m1[1]);
   const m2 = hay.match(/([\d\.,]+)\s*TL[^\n]{0,70}(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|puan|mil)/i);
@@ -189,10 +194,6 @@ function fallbackRemainingValueTry(reminder: StatementReminder): number | null {
     /(?:kalan|kullan[ıi]labilir|toplam|mevcut|biriken)[^\n]{0,50}?([\d\.,]+)\s*(?:adet\s*)?(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|Bonus(?:Flaş)?|World\s*Puan|Chip-?Para|Paraf\s*Para|CardFinans|Bankkart\s*Lira|puan|mil)/i,
   );
   if (m4?.[1]) return parseTrAmountFromText(m4[1]);
-  const m5 = hay.match(
-    /(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|Bonus(?:Flaş)?|World\s*Puan|Chip-?Para|Paraf\s*Para|CardFinans|Bankkart\s*Lira|puan|mil)[^\n]{0,50}?([\d\.,]+)\s*(?:adet)?/i,
-  );
-  if (m5?.[1]) return parseTrAmountFromText(m5[1]);
   return null;
 }
 
