@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.77 (2026-04-11)
+
+### İyileştirmeler
+- **Üstte banka/program kutuları**: Özet ekranına banka bazlı puan/mil kutuları eklendi; Yapı Kredi puan, İş Bankası mil/puan gibi tüm programlar üst bölümde toplu görünür.
+- **İş Bankası eski metin toleransı**: Çok satırlı/eski reminder metinlerinde tutar yakalama fallback’i genişletildi.
+
+---
+
 ## 1.0.76 (2026-04-11)
 
 ### Düzeltmeler

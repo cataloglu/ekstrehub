@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.77] – 2026-04-11
+
+### Improvements
+- **Top-level bank/program loyalty boxes**: Added an upper summary section that shows spendable points/miles balances by bank and loyalty program in card form.
+- **İş Bankası reminder tolerance**: Expanded fallback amount parsing for multiline/legacy text so MaxiMil/Pazarama balances are more likely to be extracted from older parsed statement reminders.
+
+---
+
 ## [1.0.76] – 2026-04-11
 
 ### Fixes

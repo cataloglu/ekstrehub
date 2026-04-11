@@ -194,6 +194,15 @@ function fallbackRemainingValueTry(reminder: StatementReminder): number | null {
     /(?:kalan|kullan[ıi]labilir|toplam|mevcut|biriken)[^\n]{0,50}?([\d\.,]+)\s*(?:adet\s*)?(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|Bonus(?:Flaş)?|World\s*Puan|Chip-?Para|Paraf\s*Para|CardFinans|Bankkart\s*Lira|puan|mil)/i,
   );
   if (m4?.[1]) return parseTrAmountFromText(m4[1]);
+  // More tolerant multiline matcher for old/mojibake statement rows.
+  const m5 = hay.match(
+    /([\d][\d\.,]{0,16})\s*(?:TL|TRY)\s*(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|Bonus(?:Flaş)?|World\s*Puan|Chip-?Para|Paraf\s*Para|CardFinans|Bankkart\s*Lira|puan|mil)/i,
+  );
+  if (m5?.[1]) return parseTrAmountFromText(m5[1]);
+  const m6 = hay.match(
+    /(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|Bonus(?:Flaş)?|World\s*Puan|Chip-?Para|Paraf\s*Para|CardFinans|Bankkart\s*Lira|puan|mil)[\s\S]{0,120}?([\d][\d\.,]{0,16})\s*(?:TL|TRY)\b/i,
+  );
+  if (m6?.[1]) return parseTrAmountFromText(m6[1]);
   return null;
 }
 
@@ -1554,6 +1563,35 @@ export function App() {
                   </p>
                 </div>
               </div>
+
+              {loyaltyBankProgramBalances.length > 0 && (
+                <section className="section">
+                  <div className="sectionHeader">
+                    <div>
+                      <h2 className="sectionTitle">Banka Bazlı Puan / Mil</h2>
+                      <p className="sectionSub">Yapı Kredi puan, İş Bankası mil/puan gibi tüm programlar tek yerde.</p>
+                    </div>
+                    <button className="linkBtn" onClick={() => setActiveTab("statements")}>
+                      Ekstreler →
+                    </button>
+                  </div>
+                  <div className="bankGrid">
+                    {loyaltyBankProgramBalances.map((row) => (
+                      <div key={row.key} className="bankCard">
+                        <div className="bankCardTop">
+                          <div className="stmtBankBadge">{row.bankName}</div>
+                          <div className="bankCardAmount">{fmtTry(row.totalTry)}</div>
+                        </div>
+                        <div className="bankCardRow">
+                          <span className="bankCardMeta">{row.loyaltyProgram}</span>
+                          <span className="bankCardMeta">{row.cardCount} kart</span>
+                        </div>
+                        <div className="bankCardFooter">Son bilinen harcanabilir bakiye</div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {upcomingPayments.length > 0 && (
                 <section className="section dueFocusSection">
