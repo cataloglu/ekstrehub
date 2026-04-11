@@ -103,3 +103,11 @@ def test_extract_bank_specific_loyalty_programs() -> None:
         assert len(reminders) == 1
         assert reminders[0].get("loyalty_program") == expected_program
         assert reminders[0].get("remaining_value_try") == expected_amount
+
+
+def test_extract_non_tl_miles_balance() -> None:
+    text = "Toplam MaxiMil bakiyeniz 12.450 olup kampanya koşullarında kullanılabilir."
+    reminders = extract_statement_reminders(text)
+    assert len(reminders) == 1
+    assert reminders[0].get("loyalty_program") == "MaxiMil"
+    assert reminders[0].get("remaining_value_try") == 12450.0

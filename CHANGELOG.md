@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.70] – 2026-04-10
+
+### Fixes
+- **Miles/points amount extraction without TL**: Reminder parsing now captures non-currency balances like `12.450 MaxiMil` / `1250 puan` in addition to TL-based formats, so dashboard cards stop showing only reminder count (`1`) when statement text contains balance but no `TL` suffix.
+- **Thousand-separator normalization**: Turkish number parsing now correctly handles dot-separated thousands in loyalty balances (e.g. `12.450` -> `12450`).
+
+### Tests
+- Added non-TL loyalty amount coverage in `tests/test_statement_reminders.py`.
+
+---
+
 ## [1.0.69] – 2026-04-10
 
 ### Improvements

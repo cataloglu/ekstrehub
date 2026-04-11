@@ -1,5 +1,17 @@
 # EkstreHub Changelog
 
+## 1.0.70 (2026-04-10)
+
+### Düzeltmeler
+- **TL olmayan mil/puan bakiyesi yakalama**: Ayrıştırıcı artık sadece `TL` geçen kalıpları değil, `12.450 MaxiMil`, `1250 puan` gibi para birimi içermeyen bakiye metinlerini de yakalar.
+- **Binlik ayraç normalizasyonu**: Türkçe sayılarda noktalı binlik formatı (`12.450`) doğru şekilde `12450` olarak işlenir.
+- **Dashboard fallback güçlendirildi**: Özet ekranında puan/mil metninden yapılan fallback ayrıştırma da TL olmayan bakiye formatlarını kapsar.
+
+### Testler
+- `tests/test_statement_reminders.py` içine TL olmayan mil bakiyesi testi eklendi.
+
+---
+
 ## 1.0.69 (2026-04-10)
 
 ### İyileştirmeler

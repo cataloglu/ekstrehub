@@ -163,6 +163,8 @@ function parseTrAmountFromText(raw: string | null | undefined): number | null {
     }
   } else if (normalized.includes(",")) {
     normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (normalized.includes(".") && /^\d{1,3}(\.\d{3})+$/.test(normalized)) {
+    normalized = normalized.replace(/\./g, "");
   }
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
@@ -176,6 +178,14 @@ function fallbackRemainingValueTry(reminder: StatementReminder): number | null {
   if (m2?.[1]) return parseTrAmountFromText(m2[1]);
   const m3 = hay.match(/(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|puan|mil)[^\n]{0,70}([\d\.,]+)\s*TL/i);
   if (m3?.[1]) return parseTrAmountFromText(m3[1]);
+  const m4 = hay.match(
+    /(?:kalan|kullan[ıi]labilir|toplam|mevcut|biriken)[^\n]{0,50}?([\d\.,]+)\s*(?:adet\s*)?(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|Bonus(?:Flaş)?|World\s*Puan|Chip-?Para|Paraf\s*Para|CardFinans|Bankkart\s*Lira|puan|mil)/i,
+  );
+  if (m4?.[1]) return parseTrAmountFromText(m4[1]);
+  const m5 = hay.match(
+    /(?:Pazarama|MaxiMil(?:es)?|MaxiPuan|Bonus(?:Flaş)?|World\s*Puan|Chip-?Para|Paraf\s*Para|CardFinans|Bankkart\s*Lira|puan|mil)[^\n]{0,50}?([\d\.,]+)\s*(?:adet)?/i,
+  );
+  if (m5?.[1]) return parseTrAmountFromText(m5[1]);
   return null;
 }
 

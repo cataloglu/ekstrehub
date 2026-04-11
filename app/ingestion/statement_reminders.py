@@ -82,7 +82,7 @@ _LOYALTY_PROGRAM_CUE = re.compile(
 )
 _LOYALTY_AMOUNT_CONTEXT_CUE = re.compile(
     r"(kullanmad|kalan|kullan[ıi]labilir|değerinde|degerinde|sona\s+erm|süresi|suresi|geçerli|gecerli|"
-    r"bakiye|bakiyeniz|hesaplan)",
+    r"bakiye|bakiyeniz|hesaplan|toplam|mevcut|kazan[ıi]lan|biriken)",
     re.IGNORECASE,
 )
 _LOYALTY_REMAINING_PATTERNS = (
@@ -114,6 +114,21 @@ _LOYALTY_REMAINING_PATTERNS = (
     re.compile(
         r"([\d\.,]+)\s*tl[^\n]{0,70}?"
         r"(bonusfla[sş]|bonus|world\s*puan|worldpuan|chip-?\s*para|paraf\s*para|cardfinans|bankkart\s*lira)",
+        re.IGNORECASE,
+    ),
+    # Non-TL loyalty balances (e.g. "Toplam MaxiMil bakiyeniz 12.450")
+    re.compile(
+        r"(?:kalan|kullan[ıi]labilir|toplam|mevcut|biriken)[^\n]{0,50}?"
+        r"([\d\.,]+)\s*(?:adet\s*)?"
+        r"(maximil(?:es)?|world\s*puan|worldpuan|bonusfla[sş]|bonus|chip-?\s*para|paraf\s*para|"
+        r"cardfinans|bankkart\s*lira|\bmil(?:ler)?\b|\bpuan(?:lar)?\b)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(maximil(?:es)?|world\s*puan|worldpuan|bonusfla[sş]|bonus|chip-?\s*para|paraf\s*para|"
+        r"cardfinans|bankkart\s*lira|\bmil(?:ler)?\b|\bpuan(?:lar)?\b)"
+        r"[^\n]{0,50}?"
+        r"([\d\.,]+)\s*(?:adet)?\b",
         re.IGNORECASE,
     ),
 )
@@ -290,6 +305,10 @@ def _parse_tr_amount(amount_raw: str | None) -> float | None:
             s = s.replace(",", "")
     elif "," in s:
         s = s.replace(".", "").replace(",", ".")
+    elif "." in s:
+        # If dot groups look like thousand separators (e.g. 12.450), normalize to integer form.
+        if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", s):
+            s = s.replace(".", "")
     try:
         return round(float(s), 2)
     except Exception:
