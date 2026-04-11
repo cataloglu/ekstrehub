@@ -1214,6 +1214,39 @@ export function App() {
     return { items, totalTry };
   }, [activeDashboardReminders]);
 
+  const loyaltyBankProgramBalances = useMemo(() => {
+    type Group = {
+      key: string;
+      bankName: string;
+      loyaltyProgram: string;
+      totalTry: number;
+      cardCount: number;
+    };
+    const byKey = new Map<string, { bankName: string; loyaltyProgram: string; totalTry: number; cards: Set<string> }>();
+    for (const it of loyaltyBalances.items) {
+      const bankName = (it.bankName ?? "Bilinmiyor").trim() || "Bilinmiyor";
+      const loyaltyProgram = it.loyaltyProgram || "Puan";
+      const key = `${bankName}|${loyaltyProgram}`;
+      const prev = byKey.get(key) ?? { bankName, loyaltyProgram, totalTry: 0, cards: new Set<string>() };
+      prev.totalTry += it.remainingValueTry;
+      prev.cards.add(it.cardNumber ?? "");
+      byKey.set(key, prev);
+    }
+    return Array.from(byKey.values())
+      .map<Group>((g) => ({
+        key: `${g.bankName}|${g.loyaltyProgram}`,
+        bankName: g.bankName,
+        loyaltyProgram: g.loyaltyProgram,
+        totalTry: g.totalTry,
+        cardCount: g.cards.size,
+      }))
+      .sort((a, b) => {
+        const bankCmp = a.bankName.localeCompare(b.bankName, "tr");
+        if (bankCmp !== 0) return bankCmp;
+        return b.totalTry - a.totalTry;
+      });
+  }, [loyaltyBalances.items]);
+
   // Total debt = only unpaid (active) statements
   const totalDebt = useMemo(
     () => statements.filter((s) => !isPaid(s)).reduce((acc, s) => acc + (s.total_due_try ?? 0), 0),
@@ -1452,25 +1485,30 @@ export function App() {
                     </>
                   )}
                 </div>
-                {activeDashboardReminders.length > 0 && (
-                  <div className="kpiCard kpiCardWarn kpiCardClickable" role="button" tabIndex={0}
-                    onClick={() => {
-                      const el = document.querySelector(".pointsReminderSection");
-                      el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && document.querySelector(".pointsReminderSection")?.scrollIntoView({ behavior: "smooth" })}
-                  >
-                    <p className="kpiLabel">Puan / Mil</p>
-                    <p className="kpiValue kpiSmall">
-                      {loyaltyBalances.totalTry > 0 ? fmtTry(loyaltyBalances.totalTry) : activeDashboardReminders.length}
-                    </p>
-                    <p className="kpiSub">
-                      {loyaltyBalances.items.length > 0
-                        ? `${loyaltyBalances.items.length} kart/program bakiyesi — aşağı kaydır`
-                        : "Harcama son tarihi — aşağı kaydır"}
-                    </p>
-                  </div>
-                )}
+                <div
+                  className={`kpiCard${loyaltyBankProgramBalances.length > 0 ? " kpiCardWarn kpiCardClickable" : ""}`}
+                  role={loyaltyBankProgramBalances.length > 0 ? "button" : undefined}
+                  tabIndex={loyaltyBankProgramBalances.length > 0 ? 0 : undefined}
+                  onClick={() => {
+                    if (loyaltyBankProgramBalances.length === 0) return;
+                    const el = document.querySelector(".pointsBalanceSection");
+                    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" || loyaltyBankProgramBalances.length === 0) return;
+                    document.querySelector(".pointsBalanceSection")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                >
+                  <p className="kpiLabel">Puan / Mil</p>
+                  <p className="kpiValue kpiSmall">
+                    {loyaltyBalances.totalTry > 0 ? fmtTry(loyaltyBalances.totalTry) : "—"}
+                  </p>
+                  <p className="kpiSub">
+                    {loyaltyBankProgramBalances.length > 0
+                      ? `${loyaltyBankProgramBalances.length} banka/program bakiyesi`
+                      : "Harcanabilir bakiye bulunamadı"}
+                  </p>
+                </div>
               </div>
 
               {upcomingPayments.length > 0 && (
@@ -1526,6 +1564,47 @@ export function App() {
                   </ul>
                 </section>
               )}
+
+              <section className="section pointsBalanceSection">
+                <div className="sectionHeader pointsReminderSectionHeader">
+                  <div>
+                    <h2 className="sectionTitle">Harcanabilir Puan / Mil Bakiyesi</h2>
+                    <p className="sectionSub">Banka ve program bazında güncel kalan bakiye.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="linkBtn"
+                    onClick={() => {
+                      setActiveTab("statements");
+                    }}
+                  >
+                    Ekstreler →
+                  </button>
+                </div>
+                {loyaltyBankProgramBalances.length === 0 ? (
+                  <p className="muted">Henüz harcanabilir puan/mil bakiyesi çıkarılamadı. Ekstrelerde yeniden çöz çalıştır.</p>
+                ) : (
+                  <ul className="pointsReminderList">
+                    {loyaltyBankProgramBalances.map((row) => (
+                      <li key={row.key} className="pointsReminderRow pointsReminderRowPoints">
+                        <div className="pointsReminderIcon" aria-hidden>🏦</div>
+                        <div className="pointsReminderBody">
+                          <div className="pointsReminderTitleRow">
+                            <span className="pointsReminderTitle">{row.bankName}</span>
+                            <span className="pointsReminderKind">{row.loyaltyProgram}</span>
+                            <span className="pointsReminderKind">{fmtTry(row.totalTry)}</span>
+                          </div>
+                          <div className="pointsReminderMeta">
+                            <span className="pointsReminderBank">{row.cardCount} kart</span>
+                            <span className="pointsReminderSep">·</span>
+                            <span className="pointsReminderPeriod">Harcanabilir toplam bakiye</span>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
 
               <section className="section pointsReminderSection">
                   <div className="sectionHeader pointsReminderSectionHeader">

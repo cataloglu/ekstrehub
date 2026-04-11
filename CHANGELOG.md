@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.72] – 2026-04-10
+
+### Improvements
+- **Bank-by-bank loyalty balances**: Added a dedicated “Harcanabilir Puan / Mil Bakiyesi” section on the summary page that lists remaining balances by bank and program (instead of only showing reminder rows).
+- **Loyalty KPI clarity**: The top `Puan / Mil` card now shows actual total balance or `—` when missing, and no longer falls back to raw reminder count.
+
+---
+
 ## [1.0.71] – 2026-04-10
 
 ### Fixes

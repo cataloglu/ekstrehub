@@ -1,5 +1,13 @@
 # EkstreHub Changelog
 
+## 1.0.72 (2026-04-10)
+
+### İyileştirmeler
+- **Banka bazlı harcanabilir puan/mil görünümü**: Özet ekranına “Harcanabilir Puan / Mil Bakiyesi” bölümü eklendi; kalan bakiye artık banka + program bazında ayrı satırlarda gösterilir.
+- **Puan/mil KPI netliği**: Üst kart artık hatırlatma adedine düşmez; gerçek toplam bakiye varsa onu, yoksa `—` gösterir.
+
+---
+
 ## 1.0.71 (2026-04-10)
 
 ### Düzeltmeler
